@@ -4,6 +4,7 @@
 
 import type { Due, EventOccurrence, Task } from "../api/client";
 import { addDays, toDateString, toTimeString } from "../lib/dates";
+import { plainText } from "../refs/kinds";
 
 export type CalItem = { kind: "event"; event: EventOccurrence } | { kind: "deadline"; task: Task; color?: string };
 
@@ -54,7 +55,7 @@ export function toEvent(item: CalItem): EventShape {
     if (e.repeats) classNames.push("is-repeat");
     const base = {
       id: `e:${e.id}:${e.start ?? e.startDate}`,
-      title: e.title || "Untitled",
+      title: plainText(e.title) || "Untitled",
       color: e.color ?? undefined,
       classNames,
       // Repeating events change through their rule, in the dialog.
@@ -75,7 +76,7 @@ export function toEvent(item: CalItem): EventShape {
   if (t.source) classNames.push("is-fixed");
   const base = {
     id: `d:${t.id}`,
-    title: t.title,
+    title: plainText(t.title),
     color: item.color,
     classNames,
     editable: !t.source,

@@ -4,6 +4,7 @@ import { formatDay, shortTime, today } from "../lib/dates";
 import { useLabelMutations, useLabels, useProjectMutations, useProjects, useTasks } from "./api";
 import { Dot, PriorityIcon, StatusIcon } from "./icons";
 import { Menu, Popover } from "./Menu";
+import { plainText } from "../refs/kinds";
 import { PRIORITIES, STATUSES, dueChoices } from "./model";
 import styles from "./Menu.module.css";
 
@@ -146,7 +147,7 @@ export function TaskMenu({ anchor, onClose, exclude, onPick, placeholder }: Menu
       onClose={onClose}
       width={320}
       placeholder={placeholder}
-      items={shown.map((t) => ({ key: t.id, label: `#${t.number} ${t.title}`, icon: <StatusIcon status={t.status} /> }))}
+      items={shown.map((t) => ({ key: t.id, label: `#${t.number} ${plainText(t.title)}`, icon: <StatusIcon status={t.status} /> }))}
       onPick={(id) => onPick(shown.find((t) => t.id === id)!)}
     />
   );

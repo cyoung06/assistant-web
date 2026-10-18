@@ -1,0 +1,122 @@
+/* Reference chips: links in text, with an icon for what they point to (drawn with a mask in
+   currentColor, so they follow the theme). */
+.ref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0 6px 0 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 550;
+  text-decoration: none;
+  vertical-align: baseline;
+  overflow-wrap: anywhere;
+}
+a.ref:hover {
+  background: var(--line);
+}
+.ref::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 12px;
+  height: 12px;
+  background: var(--text-2);
+  -webkit-mask: var(--ref-icon) center / contain no-repeat;
+  mask: var(--ref-icon) center / contain no-repeat;
+}
+.ref[data-kind="task"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%225.5%22/%3E%3Cpath%20d%3D%22M5.6%208.2%207.2%209.7%2010.4%206.4%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="project"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%222.5%22%20y%3D%223%22%20width%3D%2211%22%20height%3D%2210%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M2.5%206.5h11M6.5%206.5V13%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="event"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%222.5%22%20y%3D%223.5%22%20width%3D%2211%22%20height%3D%2210%22%20rx%3D%222%22/%3E%3Cpath%20d%3D%22M2.5%207h11M5.5%202v3M10.5%202v3%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="mail"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%222%22%20y%3D%223.5%22%20width%3D%2212%22%20height%3D%229%22%20rx%3D%221.5%22/%3E%3Cpath%20d%3D%22m2.5%204.5%205.5%204.5%205.5-4.5%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="plms_file"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%202h5l3%203v9H4z%22/%3E%3Cpath%20d%3D%22M9%202v3h3%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="plms_notice"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%206.5v3h2l5%203V3.5l-5%203z%22/%3E%3Cpath%20d%3D%22M12.5%206a2.5%202.5%200%200%201%200%204%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="plms_assignment"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%202h8v12H4z%22/%3E%3Cpath%20d%3D%22M6%205.5h4M6%208h4M6%2010.5h2%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="plms_course"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%206%208%203l6%203-6%203z%22/%3E%3Cpath%20d%3D%22M4.5%207.3V11c1%20.9%202.2%201.3%203.5%201.3s2.5-.4%203.5-1.3V7.3%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="plms_activity"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%225.5%22/%3E%3Cpath%20d%3D%22M8%205v3l2%201.5%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="link"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%209a3%203%200%200%200%204.2%200l2-2a3%203%200%200%200-4.2-4.2l-.7.7%22/%3E%3Cpath%20d%3D%22M9%207a3%203%200%200%200-4.2%200l-2%202a3%203%200%200%200%204.2%204.2l.7-.7%22/%3E%3C/svg%3E");
+}
+.ref[data-kind^="plms"]::before {
+  background: var(--warn);
+}
+.ref[data-kind="mail"]::before {
+  background: var(--accent);
+}
+
+/* Rendered Markdown: descriptions and notes. */
+.markdown {
+  overflow-wrap: anywhere;
+}
+/* Descriptions and notes; an inline one (a title) keeps its surroundings' size. */
+div.markdown {
+  font-size: var(--text-sm);
+  line-height: 1.65;
+}
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown blockquote {
+  margin: 0 0 0.7em;
+}
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+.markdown a:not(.ref) {
+  color: var(--accent);
+}
+.markdown code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 0.92em;
+}
+.markdown pre {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+.markdown blockquote {
+  padding-left: 10px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--text-2);
+}
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin: 0.8em 0 0.4em;
+  font-size: var(--text-md);
+}

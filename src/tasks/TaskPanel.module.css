@@ -51,16 +51,11 @@
   padding: 18px 18px 28px;
 }
 
-.title,
-.fixedTitle {
+.title {
   margin: 0;
-  padding: 2px 0;
-  border: 0;
-  background: none;
   font-size: var(--text-xl);
   font-weight: 650;
   line-height: 1.3;
-  outline: none;
 }
 
 .props {
@@ -126,21 +121,6 @@
 .remove:hover {
   background: var(--surface-2);
   color: var(--text);
-}
-
-.description {
-  min-height: 120px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-}
-.description:focus {
-  border-color: var(--line-strong);
 }
 
 .section {

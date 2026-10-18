@@ -18,6 +18,8 @@
     "@fullcalendar/react": "6.1.22",
     "@fullcalendar/timegrid": "6.1.22",
     "@tanstack/react-query": "5.104.4",
+    "dompurify": "3.4.16",
+    "marked": "18.0.14",
     "openapi-fetch": "0.17.0",
     "pretendard": "1.3.9",
     "react": "19.3.1",

@@ -5,6 +5,7 @@ import { useLabels, useProjects, useTaskMutations, useTasks } from "./api";
 import { Dot, PriorityIcon, StatusIcon } from "./icons";
 import { dueText, priorityLabel, statusLabel } from "./model";
 import { DueMenu, LabelsMenu, PriorityMenu, ProjectMenu, StatusMenu, TaskMenu } from "./pickers";
+import { MentionField } from "../refs/MentionField";
 import styles from "./CreateTaskDialog.module.css";
 
 type Field = "status" | "priority" | "due" | "project" | "labels" | "parent";
@@ -16,7 +17,7 @@ export function CreateTaskDialog({ defaults, onClose }: { defaults: Partial<Crea
   const [more, setMore] = useState(false);
   const [open, setOpen] = useState<Field | null>(null);
   const refs = useRef<Partial<Record<Field, HTMLButtonElement | null>>>({});
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const { create } = useTaskMutations();
   const projects = useProjects().data ?? [];
   const labels = useLabels().data ?? [];
@@ -50,25 +51,26 @@ export function CreateTaskDialog({ defaults, onClose }: { defaults: Partial<Crea
             ✕
           </button>
         </header>
-        <input
-          ref={titleRef}
+        <MentionField
+          fieldRef={titleRef}
           id="new-task-title"
           className={styles.title}
           autoFocus
-          placeholder="Task title"
+          placeholder="Task title (@ to reference)"
           value={draft.title}
-          onChange={(e) => set({ title: e.target.value })}
+          onChange={(title) => set({ title })}
           onKeyDown={(e) => {
             onKey(e);
             if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) (e.preventDefault(), submit());
           }}
         />
-        <textarea
+        <MentionField
+          multiline
           id="new-task-description"
           className={styles.description}
-          placeholder="Add description… (Markdown)"
-          value={draft.description}
-          onChange={(e) => set({ description: e.target.value })}
+          placeholder="Add description… Type @ to reference a task, PLMS file, mail, …"
+          value={draft.description ?? ""}
+          onChange={(description) => set({ description })}
           onKeyDown={onKey}
         />
         <div className={styles.chips}>

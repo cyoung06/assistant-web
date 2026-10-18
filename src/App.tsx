@@ -1,20 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CalendarApp } from "./calendar/CalendarApp";
 import { Shortcuts } from "./shell/Shortcuts";
 import { Sidebar } from "./shell/Sidebar";
+import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
 import { FOCUS_SEARCH, TasksApp } from "./tasks/TasksApp";
 import styles from "./App.module.css";
 
-function useHash(): [string, (hash: string) => void] {
+/** The URL hash without "#": [hash, navigate, replace the shown hash without a history entry]. */
+function useHash(): [string, (hash: string) => void, (hash: string) => void] {
   const [hash, setHash] = useState(() => location.hash.slice(1));
   useEffect(() => {
     const onChange = () => setHash(location.hash.slice(1));
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
-  return [hash, (next) => (location.hash = next)];
+  return [hash, useCallback((next: string) => void (location.hash = next), []), setHash];
 }
 
 /** A per-browser preference kept in localStorage (when the browser allows it). */
@@ -50,19 +52,40 @@ export function App() {
 
 /** Sub-apps in the main area, each with its own part of the URL hash ("#tasks/…", "#calendar"); navigation on the left. */
 function Shell() {
-  const [hash, setHash] = useHash();
+  const [hash, navigate, setHash] = useHash();
   const [collapsed, setCollapsed] = useStored("shell.collapsed", false);
   const [hidden, setHidden] = useStored<string[]>("calendar.hidden", []);
   const [drawer, setDrawer] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { openCreate } = useTasksUi();
+  const { openCreate, openTask } = useTasksUi();
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
+
+  // Links to things (references): #task/<id> opens the task over the task list, #event/<uid> opens
+  // the event on the calendar, #mail/<id> shows the mail.
+  useEffect(() => {
+    const m = /^(task|event)\/(.+)$/.exec(hash);
+    if (!m) return;
+    const id = decodeURIComponent(m[2]!);
+    if (m[1] === "task") {
+      openTask(id);
+      history.replaceState(null, "", "#tasks/active");
+      setHash("tasks/active");
+    } else {
+      setOpenEventId(id);
+      history.replaceState(null, "", "#calendar");
+      setHash("calendar");
+    }
+  }, [hash, openTask, setHash]);
+
+  const mailId = hash.startsWith("mail/") ? decodeURIComponent(hash.slice(5)) : null;
   const onCalendar = hash.startsWith("calendar");
   const tasksRoute = hash.startsWith("tasks/") ? hash.slice(6) : "";
   const projectId = tasksRoute.startsWith("project/") ? tasksRoute.slice(8) : undefined;
 
+  const clearOpenEvent = useCallback(() => setOpenEventId(null), []);
   const go = (next: string) => {
-    setHash(next);
+    navigate(next);
     setDrawer(false);
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
@@ -118,7 +141,13 @@ function Shell() {
           <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : "Tasks"}</span>
         </header>
         <main className={styles.main}>
-          {onCalendar ? <CalendarApp hidden={hidden} /> : <TasksApp route={tasksRoute} go={(r) => go(`tasks/${r}`)} />}
+          {mailId ? (
+            <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
+          ) : onCalendar ? (
+            <CalendarApp hidden={hidden} openEventId={openEventId} onOpened={clearOpenEvent} />
+          ) : (
+            <TasksApp route={tasksRoute} go={(r) => go(`tasks/${r}`)} />
+          )}
         </main>
       </div>
       {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}

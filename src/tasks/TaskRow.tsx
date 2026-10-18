@@ -3,6 +3,8 @@ import type { Label, Project, Task, TaskPatch } from "../api/client";
 import { Dot, PriorityIcon, StatusIcon } from "./icons";
 import { dueText, dueTone, priorityLabel, statusLabel } from "./model";
 import { DueMenu, LabelsMenu, PriorityMenu, ProjectMenu, StatusMenu } from "./pickers";
+import { RefText } from "../refs/Markdown";
+import { plainText } from "../refs/kinds";
 import styles from "./TaskRow.module.css";
 
 export type Picker = "status" | "priority" | "due" | "labels" | "project";
@@ -56,8 +58,10 @@ export function TaskRow({ task: t, today, projects, labels, parentTitle, focused
       </button>
 
       <span className={styles.titleCell}>
-        {parentTitle && <span className={styles.parent}>{parentTitle} ›</span>}
-        <span className={styles.title}>{t.title}</span>
+        {parentTitle && <span className={styles.parent}>{plainText(parentTitle)} ›</span>}
+        <span className={styles.title}>
+          <RefText text={t.title} />
+        </span>
         {t.blocked && <span className={styles.blocked} title="Blocked by an open task">Blocked</span>}
         {t.subtasks > 0 && (
           <span className={styles.meta} title="Sub-tasks done">

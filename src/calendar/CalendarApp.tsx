@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -20,9 +21,18 @@ export const DEADLINES = "deadlines";
  * The Calendar sub-app: classes, meetings and holidays, plus the deadlines from Tasks. [hidden]
  * holds the calendars (and [DEADLINES]) switched off in the sidebar.
  */
-export function CalendarApp({ hidden }: { hidden: string[] }) {
+export function CalendarApp({ hidden, openEventId, onOpened }: { hidden: string[]; openEventId?: string | null; onOpened?: () => void }) {
   const [range, setRange] = useState({ from: "", to: "" });
   const [dialog, setDialog] = useState<EventTarget | null>(null);
+
+  // A link to an event (#event/<uid>) opens it here.
+  useEffect(() => {
+    if (!openEventId) return;
+    api.GET("/api/v1/events/{id}", { params: { path: { id: openEventId } } }).then(({ data }) => {
+      if (data) setDialog({ kind: "edit", id: data.id, occurrence: data.startDate ?? toDateString(new Date(data.start!)) });
+    });
+    onOpened?.();
+  }, [openEventId, onOpened]);
   const events = useEvents(range.from, range.to);
   const tasks = useTasks();
   const projects = useProjects().data ?? [];
@@ -122,16 +132,16 @@ function renderItem(arg: EventContentArg) {
     const t = item.task;
     const time = t.due?.time ? shortTime(t.due.time) : "";
     return (
-      <div className="entry" title={`Due: #${t.number} ${t.title}`}>
+      <div className="entry" title={`Due: #${t.number} ${arg.event.title}`}>
         <span className="entry-flag">Due</span>
         {time && <span className="entry-time">{time}</span>}
-        <span className="entry-title">{t.title}</span>
+        <span className="entry-title">{arg.event.title}</span>
       </div>
     );
   }
   const e = item.event;
   return (
-    <div className="entry" title={`${e.title} · ${e.calendarName}`}>
+    <div className="entry" title={`${arg.event.title} · ${e.calendarName}`}>
       {(e.repeats || arg.timeText) && (
         <span className="entry-time">
           {e.repeats && <span title="Repeats">↻ </span>}

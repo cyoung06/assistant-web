@@ -8,6 +8,9 @@ import { Menu } from "./Menu";
 import { dueText, priorityLabel, statusLabel } from "./model";
 import { DueMenu, LabelsMenu, PriorityMenu, ProjectMenu, StatusMenu, TaskMenu } from "./pickers";
 import { useChangeTask } from "./TaskList";
+import { useBacklinks } from "../refs/api";
+import { EditableMarkdown } from "../refs/EditableMarkdown";
+import { plainText } from "../refs/kinds";
 import styles from "./TaskPanel.module.css";
 
 type Field = "status" | "priority" | "due" | "project" | "labels" | "parent" | "relationKind" | "relationTask";
@@ -71,7 +74,7 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
         <span className={styles.number}>#{t.number}</span>
         {parent && (
           <button className={styles.crumb} onClick={() => openTask(parent.id)}>
-            ↑ #{parent.number} {parent.title}
+            ↑ #{parent.number} {plainText(parent.title)}
           </button>
         )}
         <span className={styles.spacer} />
@@ -86,13 +89,9 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
       </header>
 
       <div className={styles.body}>
-        {fixed ? (
-          <h2 className={styles.fixedTitle} title={`Set in ${t.source!.toUpperCase()}`}>
-            {t.title}
-          </h2>
-        ) : (
-          <CommitText key={`title:${t.version}`} className={styles.title} value={t.title} onCommit={(title) => title.trim() && set({ title })} />
-        )}
+        <div className={styles.title} role="heading" aria-level={2} title={fixed ? `Set in ${t.source!.toUpperCase()}` : undefined}>
+          <EditableMarkdown value={t.title} readOnly={fixed} placeholder="Title" onCommit={(title) => set({ title })} />
+        </div>
 
         <dl className={styles.props}>
           <dt>Status</dt>
@@ -142,7 +141,7 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
           <dt>Parent</dt>
           <dd>
             <button ref={ref("parent")} className={`${styles.value} ${!parent ? styles.muted : ""}`} onClick={() => setOpen("parent")}>
-              {parent ? `#${parent.number} ${parent.title}` : "None"}
+              {parent ? `#${parent.number} ${plainText(parent.title)}` : "None"}
             </button>
             {parent && (
               <button className={styles.remove} aria-label="Remove parent" onClick={() => set({ parentId: null })}>
@@ -152,14 +151,7 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
           </dd>
         </dl>
 
-        <CommitText
-          key={`description:${t.version}`}
-          multiline
-          className={styles.description}
-          value={t.description}
-          placeholder="Add description… (Markdown)"
-          onCommit={(description) => set({ description })}
-        />
+        <EditableMarkdown multiline value={t.description} placeholder="Add description… Type @ to reference anything" onCommit={(description) => set({ description })} />
 
         <section className={styles.section}>
           <h3>
@@ -190,7 +182,7 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
                   <div key={r.id} className={styles.mini}>
                     <StatusIcon status={r.task.status} />
                     <button className={styles.miniTitle} onClick={() => openTask(r.task.id)}>
-                      #{r.task.number} {r.task.title}
+                      #{r.task.number} {plainText(r.task.title)}
                     </button>
                     <button className={styles.remove} aria-label="Remove relation" onClick={() => unrelate.mutate({ id: t.id, relationId: r.id })}>
                       ×
@@ -204,6 +196,8 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
             Add relation
           </button>
         </section>
+
+        <Backlinks id={t.id} />
 
         <footer className={styles.foot}>
           <span className={styles.stamp}>
@@ -301,34 +295,28 @@ function MiniRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
         <StatusIcon status={task.status} />
       </button>
       <button className={`${styles.miniTitle} ${task.status === "done" || task.status === "canceled" ? styles.closed : ""}`} onClick={onOpen}>
-        <span className={styles.miniNumber}>#{task.number}</span> {task.title}
+        <span className={styles.miniNumber}>#{task.number}</span> {plainText(task.title)}
       </button>
     </div>
   );
 }
 
-interface CommitTextProps {
-  value: string;
-  onCommit: (value: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  className?: string;
-}
-
-/** Edits in place and reports on blur (and on Enter for one line). */
-function CommitText({ value, onCommit, placeholder, multiline, className }: CommitTextProps) {
-  const [text, setText] = useState(value);
-  const commit = () => text !== value && onCommit(text);
-  return multiline ? (
-    <textarea className={className} value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={commit} />
-  ) : (
-    <input
-      className={className}
-      value={text}
-      placeholder={placeholder}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
+/** Tasks and events that link to this task. */
+function Backlinks({ id }: { id: string }) {
+  const url = `${location.origin}/#task/${id}`;
+  const backlinks = useBacklinks(url);
+  const list = backlinks.data ?? [];
+  if (!list.length) return null;
+  return (
+    <section className={styles.section}>
+      <h3>Referenced by</h3>
+      {list.map((r) => (
+        <div key={r.url} className={styles.mini}>
+          <a className="ref" data-kind={r.kind} href={r.url}>
+            {r.title}
+          </a>
+        </div>
+      ))}
+    </section>
   );
 }

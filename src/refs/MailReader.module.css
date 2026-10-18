@@ -1,0 +1,57 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+}
+.bar {
+  padding: 8px 8px 0;
+}
+.note {
+  margin: 0;
+  padding: 16px;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.mail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 20px 20px;
+}
+.mail h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+.head {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.head dt {
+  color: var(--text-3);
+}
+.head dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* Mail is designed for a white page, so it stays white in dark mode too. */
+.frame {
+  flex: 1;
+  min-height: 400px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+.text {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}

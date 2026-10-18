@@ -1,0 +1,39 @@
+.view {
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+.view:hover:not(.readOnly) {
+  background: var(--surface-2);
+}
+.readOnly {
+  cursor: default;
+}
+.areaView {
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+}
+
+.placeholder {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.field {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  outline: none;
+}
+.line {
+  padding: 2px 6px;
+  font: inherit;
+}
+.area {
+  min-height: 140px;
+  padding: 8px 10px;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  resize: vertical;
+}

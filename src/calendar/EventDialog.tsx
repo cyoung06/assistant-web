@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { CalendarEvent, Repeat } from "../api/client";
 import { addDays, formatDay, toDateString, toTimeString } from "../lib/dates";
 import { useEvent, useEventMutations } from "./api";
+import { Markdown } from "../refs/Markdown";
+import { MentionField } from "../refs/MentionField";
 import styles from "./EventDialog.module.css";
 
 type Weekday = NonNullable<Repeat["weekdays"]>[number];
@@ -135,15 +137,13 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
                 ✕
               </button>
             </header>
-            <input
-              id="event-title"
-              className={styles.title}
-              autoFocus={!readOnly}
-              readOnly={readOnly}
-              placeholder="Event title"
-              value={form.title}
-              onChange={(ev) => set({ title: ev.target.value })}
-            />
+            {readOnly ? (
+              <h2 className={styles.title}>
+                <Markdown inline text={form.title} />
+              </h2>
+            ) : (
+              <MentionField id="event-title" className={styles.title} autoFocus placeholder="Event title (@ to reference)" value={form.title} onChange={(title) => set({ title })} />
+            )}
             {readOnly && <p className={styles.note}>From {e?.calendarName}; it can't be changed here.</p>}
 
             <fieldset className={styles.fields} disabled={readOnly}>
@@ -236,7 +236,11 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
                 </>
               )}
 
-              <textarea id="event-notes" className={`input ${styles.notes}`} placeholder="Notes" value={form.notes} onChange={(ev) => set({ notes: ev.target.value })} />
+              {readOnly ? (
+                form.notes && <Markdown text={form.notes} />
+              ) : (
+                <MentionField multiline id="event-notes" className={`input ${styles.notes}`} placeholder="Notes… Type @ to reference anything" value={form.notes} onChange={(notes) => set({ notes })} />
+              )}
             </fieldset>
 
             {error && <p className={styles.warn}>{error.message}</p>}
