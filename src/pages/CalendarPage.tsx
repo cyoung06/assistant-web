@@ -7,7 +7,7 @@ import type { DateSelectArg, EventContentArg, EventDropArg } from "@fullcalendar
 import type { EventResizeDoneArg, DropArg } from "@fullcalendar/interaction";
 import type { CalendarEntry, Scope } from "../api/client";
 import { useAskScope } from "../components/ScopePrompt";
-import { useCalendar, useItemMutations, useItems, useTags } from "../api/queries";
+import { useCalendar, useHiddenTagIds, useItemMutations, useItems, useTags } from "../api/queries";
 import { usePanel } from "../components/panel";
 import { TagDot } from "../components/TagPicker";
 import { whenLabel } from "../components/ItemRow";
@@ -149,7 +149,7 @@ function renderEntry(arg: EventContentArg) {
 /** Open, unscheduled top-level items, draggable onto the calendar. */
 function ToSchedule() {
   const ref = useRef<HTMLDivElement>(null);
-  const items = useItems({ done: false, topLevel: true, repeating: false });
+  const items = useItems({ done: false, topLevel: true, hideTags: useHiddenTagIds() });
   const unscheduled = (items.data?.items ?? []).filter((i) => !i.at);
 
   useEffect(() => {

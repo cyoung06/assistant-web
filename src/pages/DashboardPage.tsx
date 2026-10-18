@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useCalendar, useItems } from "../api/queries";
+import { useCalendar, useHiddenTagIds, useItems } from "../api/queries";
 import { EntryRow } from "../components/EntryRow";
 import { ItemRow } from "../components/ItemRow";
 import { addDays, formatDay, parseDate } from "../lib/dates";
@@ -16,6 +16,9 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
   const from = weekStart(day);
   const to = addDays(day, UPCOMING_DAYS + 1);
   const calendar = useCalendar(from, to, [], true);
+  // Coming up and the week strip leave out tagged time-slot items like classes; Today shows everything.
+  const hidden = useHiddenTagIds();
+  const taskCalendar = useCalendar(from, to, hidden, true);
   const overdue = useItems({ overdue: true });
   const waiting = useItems({ done: false, scheduled: false, topLevel: true });
 
@@ -25,10 +28,12 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
   );
   const byDate = new Map(days.map((d) => [d.date, d]));
   const todayInfo = byDate.get(day) ?? { date: day, schedule: [], deadlines: [] };
-  // Repeating events (classes) are routine: they show in Today, but not in Coming up or the week strip.
-  const oneOff = (d: Day): Day => ({ ...d, schedule: d.schedule.filter((e) => !e.seriesId), deadlines: d.deadlines.filter((e) => !e.seriesId) });
-  const upcoming = days.filter((d) => d.date > day).map(oneOff);
-  const week = days.filter((d) => d.date < addDays(from, 7)).map(oneOff);
+  const taskDays = useMemo(
+    () => groupByDay(taskCalendar.data ?? [], from, (parseDate(to).getTime() - parseDate(from).getTime()) / 86_400_000),
+    [taskCalendar.data, from, to],
+  );
+  const upcoming = taskDays.filter((d) => d.date > day);
+  const week = taskDays.filter((d) => d.date < addDays(from, 7));
   const now = new Date();
 
   const overdueItems = overdueBefore(overdue.data?.items ?? [], day);

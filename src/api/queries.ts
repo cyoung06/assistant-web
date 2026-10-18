@@ -30,6 +30,17 @@ export function useTags() {
   });
 }
 
+/**
+ * Tags whose items stay out of the task views (Coming up, week strip, boards, Items): items that
+ * just happen at a time, like classes. They still show in the calendar and Today.
+ */
+export const TASK_VIEW_HIDDEN_TAGS = ["class"];
+
+export function useHiddenTagIds(): string[] {
+  const tags = useTags().data ?? [];
+  return tags.filter((t) => TASK_VIEW_HIDDEN_TAGS.includes(t.name.toLowerCase())).map((t) => t.id);
+}
+
 export function useTagMutations() {
   const qc = useQueryClient();
   const done = () => Promise.all([qc.invalidateQueries({ queryKey: keys.tags }), invalidateItems(qc)]);
@@ -58,8 +69,8 @@ export interface ItemFilter {
   scheduled?: boolean;
   overdue?: boolean;
   topLevel?: boolean;
-  /** False leaves out occurrences of repeating events (classes etc.). */
-  repeating?: boolean;
+  /** Leave out items carrying any of these tags. */
+  hideTags?: string[];
   q?: string;
 }
 

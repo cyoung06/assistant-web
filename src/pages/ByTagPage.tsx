@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Item } from "../api/client";
-import { useItems, useTags } from "../api/queries";
+import { useHiddenTagIds, useItems, useTags } from "../api/queries";
 import { ItemRow } from "../components/ItemRow";
 import { TagDot } from "../components/TagPicker";
 import { sortItems } from "../lib/items";
@@ -9,8 +9,9 @@ import styles from "./ByTagPage.module.css";
 /** A column per tag, plus one for untagged items. An item with several tags shows in each column. */
 export function ByTagPage() {
   const [showDone, setShowDone] = useState(false);
-  const tags = useTags().data ?? [];
-  const items = useItems({ done: showDone ? undefined : false, topLevel: true, repeating: false });
+  const hidden = useHiddenTagIds();
+  const tags = (useTags().data ?? []).filter((t) => !hidden.includes(t.id));
+  const items = useItems({ done: showDone ? undefined : false, topLevel: true, hideTags: hidden });
   const all = sortItems(items.data?.items ?? [], "next", true);
 
   const columns = [

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Item, Tag } from "../api/client";
-import { useItemMutations, useItems, useTags, type ItemFilter } from "../api/queries";
+import { useHiddenTagIds, useItemMutations, useItems, useTags, type ItemFilter } from "../api/queries";
 import { usePanel } from "../components/panel";
 import { TagDot } from "../components/TagPicker";
 import { formatDay, formatDuration, formatTime, shortTime } from "../lib/dates";
@@ -23,7 +23,8 @@ const COLUMNS: { field: SortField | null; label: string; className?: string }[] 
 export function ItemsPage() {
   const [status, setStatus] = useState<Status>("open");
   const [topLevel, setTopLevel] = useState(true);
-  const [showRepeating, setShowRepeating] = useState(false);
+  const [showClasses, setShowClasses] = useState(false);
+  const hidden = useHiddenTagIds();
   const [tag, setTag] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ field: SortField; asc: boolean }>({ field: "next", asc: true });
@@ -33,7 +34,7 @@ export function ItemsPage() {
   const filter: ItemFilter = {
     done: status === "all" ? undefined : status === "done",
     topLevel: topLevel || undefined,
-    repeating: showRepeating ? undefined : false,
+    hideTags: showClasses || !hidden.length ? undefined : hidden,
     tag: tag || undefined,
     q: query.trim() || undefined,
   };
@@ -59,8 +60,8 @@ export function ItemsPage() {
           Top level only
         </label>
         <label className={styles.check}>
-          <input id="items-repeating" className="checkbox" type="checkbox" checked={showRepeating} onChange={(e) => setShowRepeating(e.target.checked)} />
-          Repeating events
+          <input id="items-classes" className="checkbox" type="checkbox" checked={showClasses} onChange={(e) => setShowClasses(e.target.checked)} />
+          Show classes
         </label>
         <select id="items-tag" className="input" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Tag">
           <option value="">All tags</option>
