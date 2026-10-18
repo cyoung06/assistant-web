@@ -10,6 +10,7 @@ const entry = (over: Partial<AgendaEntry>): AgendaEntry => ({
   title: "x",
   calendarName: "",
   categories: [],
+  fixed: false,
   done: false,
   overdue: false,
   repeats: false,

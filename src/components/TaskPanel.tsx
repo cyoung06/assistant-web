@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CreateTask, Due, Task, TaskPatch } from "../api/client";
-import { useCalendars, useEventMutations, useTask, useTaskMutations, useTasks } from "../api/queries";
+import { useEventMutations, useTask, useTaskMutations, useTasks } from "../api/queries";
 import { formatDuration, shortTime } from "../lib/dates";
 import { usePanel, type PanelTarget } from "./panel";
 import { TaskRow } from "./TaskRow";
@@ -30,20 +30,29 @@ interface Values {
   title: string;
   notes: string;
   due: Due | null;
-  calendarId: string | null;
   categories: string[];
 }
 
-/** The fields of a task. Text fields report on blur; the rest right away. */
-function TaskForm({ value, onChange, autoFocus }: { value: Values; onChange: (patch: Partial<Values>) => void; autoFocus?: boolean }) {
-  const calendars = useCalendars().data ?? [];
+/**
+ * The fields of a task. Text fields report on blur; the rest right away. [fixedBy] names the source
+ * that owns the title and deadline, which are then shown but not editable.
+ */
+function TaskForm({ value, onChange, autoFocus, fixedBy }: { value: Values; onChange: (patch: Partial<Values>) => void; autoFocus?: boolean; fixedBy?: string }) {
   return (
     <div className={styles.form}>
-      <CommitInput className={styles.titleInput} value={value.title} placeholder="Title" autoFocus={autoFocus} onCommit={(title) => onChange({ title })} />
+      {fixedBy ? (
+        <h2 className={styles.fixedTitle}>{value.title}</h2>
+      ) : (
+        <CommitInput className={styles.titleInput} value={value.title} placeholder="Title" autoFocus={autoFocus} onCommit={(title) => onChange({ title })} />
+      )}
 
       <section className={styles.field}>
         <span className="label">Due</span>
-        {value.due ? (
+        {fixedBy ? (
+          <p className={styles.fixedValue}>
+            {value.due ? `${value.due.date}${value.due.time ? ` ${shortTime(value.due.time)}` : ""}` : "No deadline"} · set in {fixedBy}
+          </p>
+        ) : value.due ? (
           <div className={styles.inline}>
             <input
               id="task-due-date"
@@ -75,24 +84,6 @@ function TaskForm({ value, onChange, autoFocus }: { value: Values; onChange: (pa
       </section>
 
       <section className={styles.field}>
-        <span className="label">Calendar</span>
-        <select
-          id="task-calendar"
-          className="input"
-          value={value.calendarId ?? ""}
-          onChange={(e) => onChange({ calendarId: e.target.value || null })}
-          aria-label="Calendar"
-        >
-          {!value.calendarId && <option value="">Inbox</option>}
-          {calendars.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      <section className={styles.field}>
         <span className="label">Categories</span>
         <CategoryInput value={value.categories} onChange={(categories) => onChange({ categories })} />
       </section>
@@ -112,7 +103,6 @@ function NewTask({ draft }: { draft: CreateTask }) {
     title: draft.title,
     notes: draft.notes ?? "",
     due: draft.due ?? null,
-    calendarId: draft.calendarId ?? null,
     categories: draft.categories ?? [],
   });
 
@@ -121,7 +111,6 @@ function NewTask({ draft }: { draft: CreateTask }) {
       title: values.title,
       notes: values.notes,
       due: values.due,
-      calendarId: values.calendarId,
       categories: values.categories,
       parentId: draft.parentId,
     });
@@ -188,7 +177,12 @@ function ExistingTask({ id }: { id: string }) {
         </button>
       )}
 
-      <TaskForm key={`${t.id}:${t.etag}`} value={{ title: t.title, notes: t.notes, due: t.due ?? null, calendarId: t.calendarId, categories: t.categories }} onChange={save} />
+      <TaskForm
+        key={`${t.id}:${t.etag}`}
+        value={{ title: t.title, notes: t.notes, due: t.due ?? null, categories: t.categories }}
+        fixedBy={t.fixed ? t.calendarName : undefined}
+        onChange={save}
+      />
 
       {t.url && (
         <a className={styles.link} href={t.url} target="_blank" rel="noreferrer">

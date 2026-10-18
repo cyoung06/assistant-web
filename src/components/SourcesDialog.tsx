@@ -35,7 +35,6 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
             <SourceRow key={s.type} source={s} />
           ))}
         </ul>
-        <Devices />
         <CalendarFeed />
       </div>
     </div>
@@ -99,9 +98,17 @@ function CalendarFeed() {
     <section className={styles.feed}>
       <h3>Calendar feed</h3>
       <p className={styles.hint}>
-        Subscribe to this URL in Apple Calendar (File → New Calendar Subscription, or tap the link on iPhone) to see your events,
-        classes and open deadlines there. Works on devices on your tailnet. Keep it private.
+        One read-only feed with every calendar: events, classes, tasks and a “Due:” entry for each open deadline. You act here;
+        your devices show it. Works on your tailnet. Keep the URL private.
       </p>
+      <ul className={styles.steps}>
+        <li>
+          <b>Mac:</b> Calendar → File → New Calendar Subscription, paste the URL, set auto-refresh to every 5 minutes.
+        </li>
+        <li>
+          <b>Android:</b> install ICSx⁵, add a subscription with the URL; your calendar app then shows it.
+        </li>
+      </ul>
       {feed.error && <p className={styles.error}>{feed.error.message}</p>}
       {url && (
         <>
@@ -136,25 +143,3 @@ function CalendarFeed() {
 }
 
 /** How to connect Calendar, Reminders and Android apps to the CalDAV server. */
-function Devices() {
-  const url = "https://dav.lonk-kelvin.ts.net";
-  return (
-    <section className={styles.feed}>
-      <h3>Connect your apps (CalDAV)</h3>
-      <p className={styles.hint}>
-        Events and tasks live on your CalDAV server, so any CalDAV app shows and edits them. Server: <code>{url}</code>, user{" "}
-        <code>syeyoung</code>, password from your secrets. Tailnet only.
-      </p>
-      <ul className={styles.steps}>
-        <li>
-          <b>Mac:</b> System Settings → Internet Accounts → Add Other Account → CalDAV account → Manual, with the server above. Calendar
-          and Reminders then show your calendars.
-        </li>
-        <li>
-          <b>Android:</b> install DAVx⁵ and Tasks.org, add an account in DAVx⁵ with “Login with URL and user name”, then enable the
-          calendars. Your calendar app shows events; Tasks.org shows tasks with categories, sub-tasks and done.
-        </li>
-      </ul>
-    </section>
-  );
-}

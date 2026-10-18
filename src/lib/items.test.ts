@@ -6,6 +6,7 @@ const task = (id: string, over: Partial<Task> = {}): Task => ({
   id,
   calendarId: "c",
   calendarName: "Inbox",
+  fixed: false,
   title: id,
   notes: "",
   done: false,

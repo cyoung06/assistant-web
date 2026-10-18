@@ -1,22 +1,23 @@
 import { useMemo, useState } from "react";
-import { CalendarsDialog } from "./components/CalendarsDialog";
 import { PanelContext, type PanelApi, type PanelTarget } from "./components/panel";
 import { QuickAdd } from "./components/QuickAdd";
 import { SourcesDialog } from "./components/SourcesDialog";
 import { TaskPanel } from "./components/TaskPanel";
-import { ByCalendarPage } from "./pages/ByCalendarPage";
+import { ByCategoryPage } from "./pages/ByCategoryPage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TasksPage } from "./pages/TasksPage";
 import styles from "./App.module.css";
 
-const PAGES = ["dashboard", "tasks", "by-calendar"] as const;
+const PAGES = ["dashboard", "calendar", "tasks", "by-category"] as const;
 type Page = (typeof PAGES)[number];
 
 /** Main screens first; custom views after the divider. */
 const NAV: { page: Page; label: string; view?: boolean }[] = [
   { page: "dashboard", label: "Dashboard" },
+  { page: "calendar", label: "Calendar" },
   { page: "tasks", label: "Tasks" },
-  { page: "by-calendar", label: "By calendar", view: true },
+  { page: "by-category", label: "By category", view: true },
 ];
 
 function initialPage(): Page {
@@ -27,7 +28,6 @@ function initialPage(): Page {
 export function App() {
   const [page, setPage] = useState<Page>(initialPage);
   const [panel, setPanel] = useState<PanelTarget>(null);
-  const [tagsOpen, setTagsOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const panelApi = useMemo<PanelApi>(
@@ -65,18 +65,15 @@ export function App() {
             <button className="btn btn-ghost" onClick={() => setSourcesOpen(true)}>
               Sources
             </button>
-            <button className="btn btn-ghost" onClick={() => setTagsOpen(true)}>
-              Calendars
-            </button>
           </header>
           <main className={styles.main}>
             {page === "dashboard" && <DashboardPage />}
             {page === "tasks" && <TasksPage />}
-            {page === "by-calendar" && <ByCalendarPage />}
+            {page === "calendar" && <CalendarPage />}
+            {page === "by-category" && <ByCategoryPage />}
           </main>
         </div>
         <TaskPanel target={panel} />
-        {tagsOpen && <CalendarsDialog onClose={() => setTagsOpen(false)} />}
         {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}
       </PanelContext.Provider>
   );

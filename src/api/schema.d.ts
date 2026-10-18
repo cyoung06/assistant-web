@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/v1/admin/migrate-to-dav": {
+    "/api/v1/admin/restructure": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,7 +13,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["migrate"];
+        post: operations["run"];
         delete?: never;
         options?: never;
         head?: never;
@@ -45,7 +45,7 @@ export interface paths {
         };
         get: operations["calendars"];
         put?: never;
-        post: operations["createCalendar"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -62,7 +62,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["deleteCalendar"];
+        delete?: never;
         options?: never;
         head?: never;
         patch: operations["updateCalendar"];
@@ -97,7 +97,7 @@ export interface paths {
         delete: operations["deleteEvent"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["moveEvent"];
         trace?: never;
     };
     "/api/v1/ical/feed": {
@@ -245,6 +245,7 @@ export interface components {
             end?: string | null;
             /** Format: date */
             endDate?: string | null;
+            fixed: boolean;
             id: string;
             /** @enum {string} */
             kind: "block" | "allDayBlock" | "deadline" | "allDayDeadline";
@@ -264,12 +265,7 @@ export interface components {
             /** Format: int32 */
             openTasks: number;
         };
-        CreateCalendarRequest: {
-            color?: string | null;
-            name: string;
-        };
         CreateEventRequest: {
-            calendarId?: string | null;
             categories?: string[];
             /** Format: date-time */
             end?: string | null;
@@ -284,7 +280,6 @@ export interface components {
             title: string;
         };
         CreateTaskRequest: {
-            calendarId?: string | null;
             categories?: string[];
             due?: components["schemas"]["DueDto"] | null;
             notes?: string;
@@ -330,20 +325,17 @@ export interface components {
             textual?: boolean;
             valueNode?: boolean;
         };
-        MigrationReport: {
-            /** Format: int32 */
-            calendars: number;
-            /** Format: int32 */
-            events: number;
-            /** Format: int32 */
-            series: number;
-            /** Format: int32 */
-            skipped: number;
-            /** Format: int32 */
-            tasks: number;
+        MoveEventRequest: {
+            /** Format: date-time */
+            end?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
         };
         QuickAddDraft: {
-            calendarId?: string | null;
             categories?: string[];
             due?: components["schemas"]["DueDto"] | null;
             /** Format: date-time */
@@ -364,6 +356,16 @@ export interface components {
         QuickAddResult: {
             draft: components["schemas"]["QuickAddDraft"];
             parsed: boolean;
+        };
+        RestructureReport: {
+            /** Format: int32 */
+            calendarsRemoved: number;
+            /** Format: int32 */
+            feedEventsDropped: number;
+            /** Format: int32 */
+            movedToAssistant: number;
+            /** Format: int32 */
+            movedToPlms: number;
         };
         SourceStatus: {
             displayName: string;
@@ -404,6 +406,7 @@ export interface components {
             doneAt?: string | null;
             due?: components["schemas"]["DueDto"] | null;
             etag?: string | null;
+            fixed: boolean;
             id: string;
             /** Format: int64 */
             minutesPlanned: number;
@@ -433,7 +436,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    migrate: {
+    run: {
         parameters: {
             query?: never;
             header?: never;
@@ -448,7 +451,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MigrationReport"];
+                    "*/*": components["schemas"]["RestructureReport"];
                 };
             };
         };
@@ -494,50 +497,6 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["CalendarResponse"][];
                 };
-            };
-        };
-    };
-    createCalendar: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateCalendarRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["CalendarResponse"];
-                };
-            };
-        };
-    };
-    deleteCalendar: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -608,6 +567,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    moveEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveEventRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AgendaEntry"];
+                };
             };
         };
     };

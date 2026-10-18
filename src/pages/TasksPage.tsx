@@ -69,7 +69,7 @@ export function TasksPage() {
         </select>
         <input id="tasks-search" className="input" type="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
         <span className={styles.total}>{rows.length} tasks</span>
-        <button className="btn btn-primary" onClick={() => openDraft({ title: "", calendarId: calendarId || undefined })}>
+        <button className="btn btn-primary" onClick={() => openDraft({ title: "" })}>
           New task
         </button>
       </div>

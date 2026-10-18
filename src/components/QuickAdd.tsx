@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { QuickAddDraft, QuickAddResult } from "../api/client";
-import { useCalendars, useEventMutations, useQuickAddParse, useTaskMutations } from "../api/queries";
+import { useEventMutations, useQuickAddParse, useTaskMutations } from "../api/queries";
 import { formatDay, formatTime, shortTime } from "../lib/dates";
 import { usePanel } from "./panel";
-import { TagDot } from "./TagPicker";
 import styles from "./QuickAdd.module.css";
 
 /** Free-text capture: the LLM turns it into a task or an event, shown for confirmation before saving. */
@@ -15,7 +14,6 @@ export function QuickAdd() {
   const parse = useQuickAddParse();
   const tasks = useTaskMutations();
   const events = useEventMutations();
-  const calendars = useCalendars().data ?? [];
   const { openDraft } = usePanel();
 
   // Cmd/Ctrl+K focuses quick add from anywhere.
@@ -53,7 +51,6 @@ export function QuickAdd() {
       await events.create.mutateAsync({
         title: d.title,
         notes: d.notes,
-        calendarId: d.calendarId,
         categories: d.categories,
         start: d.start,
         end: d.end,
@@ -61,14 +58,13 @@ export function QuickAdd() {
         endDate: d.endDate,
       });
     } else {
-      await tasks.create.mutateAsync({ title: d.title, notes: d.notes, calendarId: d.calendarId, categories: d.categories, due: d.due });
+      await tasks.create.mutateAsync({ title: d.title, notes: d.notes, categories: d.categories, due: d.due });
     }
     setNotice(`Added “${d.title}”`);
     reset();
   };
 
   const draft = result?.draft;
-  const calendar = calendars.find((c) => c.id === draft?.calendarId);
   const saving = tasks.create.isPending || events.create.isPending;
   const error = parse.error ?? tasks.create.error ?? events.create.error;
 
@@ -130,9 +126,6 @@ export function QuickAdd() {
               </span>
             )}
             {draft.kind === "task" && !draft.due && <span className={styles.fact}>No date. You can sort it later.</span>}
-            <span className={styles.fact}>
-              <TagDot color={calendar?.color} /> {calendar?.name ?? "Inbox"}
-            </span>
             {draft.categories?.map((c) => (
               <span key={c} className={styles.fact}>
                 {c}
@@ -148,7 +141,7 @@ export function QuickAdd() {
                 className="btn"
                 type="button"
                 onClick={() => {
-                  openDraft({ title: draft.title, notes: draft.notes, due: draft.due, calendarId: draft.calendarId, categories: draft.categories });
+                  openDraft({ title: draft.title, notes: draft.notes, due: draft.due, categories: draft.categories });
                   reset();
                 }}
               >

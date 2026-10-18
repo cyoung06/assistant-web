@@ -26,17 +26,9 @@ export function useCalendarMutations() {
   const qc = useQueryClient();
   const done = () => invalidateAll(qc);
   return {
-    create: useMutation({
-      mutationFn: async (body: { name: string; color: string }) => unwrap(await api.POST("/api/v1/calendars", { body })),
-      onSuccess: done,
-    }),
     update: useMutation({
       mutationFn: async ({ id, ...body }: { id: string; name?: string; color?: string }) =>
         unwrap(await api.PATCH("/api/v1/calendars/{id}", { params: { path: { id } }, body })),
-      onSuccess: done,
-    }),
-    remove: useMutation({
-      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/calendars/{id}", { params: { path: { id } } })),
       onSuccess: done,
     }),
   };
