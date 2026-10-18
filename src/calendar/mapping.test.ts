@@ -13,7 +13,7 @@ const deadline = (over: Partial<Task>): CalItem => ({
   kind: "deadline",
   task: {
     id: "t1", number: 1, title: "HW6", description: "", status: "todo", priority: "none", labelIds: [], relations: [], blocked: false,
-    overdue: false, subtasks: 0, subtasksDone: 0, createdAt: "", updatedAt: "", version: 1, due: { date: "2026-10-20", time: "19:00:00" },
+    overdue: false, attachments: [], subtasks: 0, subtasksDone: 0, createdAt: "", updatedAt: "", version: 1, due: { date: "2026-10-20", time: "19:00:00" },
     ...over,
   },
 });

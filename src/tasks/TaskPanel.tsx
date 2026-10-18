@@ -197,6 +197,19 @@ export function TaskPanel({ id, onClose }: { id: string; onClose: () => void }) 
           </button>
         </section>
 
+        {t.attachments.length > 0 && (
+          <section className={styles.section}>
+            <h3>Attachments</h3>
+            <div className={styles.files}>
+              {t.attachments.map((a) => (
+                <a key={a.id} className={styles.file} href={`/api/v1/attachments/${a.id}`} target="_blank" rel="noreferrer" title={a.filename}>
+                  {a.contentType.startsWith("image/") ? <img src={`/api/v1/attachments/${a.id}`} alt={a.filename} /> : <span>{a.filename}</span>}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
         <Backlinks id={t.id} />
 
         <footer className={styles.foot}>

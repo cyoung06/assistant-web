@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["download"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/calendars": {
         parameters: {
             query?: never;
@@ -50,6 +82,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["updateCalendar"];
+        trace?: never;
+    };
+    "/api/v1/capture/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["analyze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/events": {
@@ -408,6 +456,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AnalyzeRequest: {
+            attachmentIds?: string[];
+            text?: string;
+        };
+        AnalyzeResponse: {
+            items: components["schemas"]["Proposal"][];
+        };
+        AttachmentInfo: {
+            contentType: string;
+            /** Format: date-time */
+            createdAt: string;
+            filename: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            size: number;
+        };
         CalendarResponse: {
             color?: string | null;
             fixed: boolean;
@@ -441,6 +506,7 @@ export interface components {
             taskId: string;
         };
         CreateTaskRequest: {
+            attachmentIds?: string[];
             description?: string;
             due?: components["schemas"]["DueDto"] | null;
             labelIds?: string[];
@@ -586,6 +652,25 @@ export interface components {
             /** Format: int32 */
             taskCount: number;
         };
+        Proposal: {
+            description: string;
+            due?: components["schemas"]["DueDto"] | null;
+            /** Format: date-time */
+            end?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            kind: string;
+            labelIds?: string[];
+            /** @enum {string} */
+            priority?: "none" | "urgent" | "high" | "medium" | "low";
+            /** Format: uuid */
+            projectId?: string | null;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            title: string;
+        };
         Ref: {
             context?: string | null;
             /** Format: date-time */
@@ -653,6 +738,7 @@ export interface components {
             title: string;
         };
         TaskResponse: {
+            attachments: components["schemas"]["AttachmentInfo"][];
             blocked: boolean;
             /** Format: date-time */
             closedAt?: string | null;
@@ -727,6 +813,75 @@ export interface operations {
             };
         };
     };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AttachmentInfo"];
+                };
+            };
+        };
+    };
+    download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     calendars: {
         parameters: {
             query?: never;
@@ -769,6 +924,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CalendarResponse"];
+                };
+            };
+        };
+    };
+    analyze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyzeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AnalyzeResponse"];
                 };
             };
         };

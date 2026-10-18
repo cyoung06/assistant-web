@@ -8,7 +8,7 @@ const today = "2026-10-18";
 let n = 0;
 const task = (over: Partial<Task>): Task => ({
   id: `t${++n}`, number: n, title: `task ${n}`, description: "", status: "todo", priority: "none", labelIds: [], relations: [],
-  blocked: false, overdue: false, subtasks: 0, subtasksDone: 0, createdAt: "", updatedAt: "", version: 1, ...over,
+  blocked: false, overdue: false, attachments: [], subtasks: 0, subtasksDone: 0, createdAt: "", updatedAt: "", version: 1, ...over,
 });
 
 describe("due dates", () => {
