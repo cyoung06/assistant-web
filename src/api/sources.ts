@@ -33,3 +33,29 @@ export function useRotateFeed() {
     onSuccess: (feed) => qc.setQueryData(["feed"], feed),
   });
 }
+
+// ---- mail account (Microsoft sign-in) ------------------------------------------------
+
+/** Polls while a sign-in is waiting for the user. */
+export function useMailAccount() {
+  return useQuery({
+    queryKey: ["mail-account"],
+    queryFn: async () => unwrap(await api.GET("/api/v1/mail/account")),
+    refetchInterval: (q) => (q.state.data?.state === "pending" ? 3000 : false),
+  });
+}
+
+export function useMailMutations() {
+  const qc = useQueryClient();
+  const done = () => Promise.all([qc.invalidateQueries({ queryKey: ["mail-account"] }), qc.invalidateQueries({ queryKey: ["sources"] })]);
+  return {
+    connect: useMutation({
+      mutationFn: async () => unwrap(await api.POST("/api/v1/mail/connect")),
+      onSuccess: (status) => qc.setQueryData(["mail-account"], status),
+    }),
+    disconnect: useMutation({
+      mutationFn: async () => unwrap(await api.DELETE("/api/v1/mail/account")),
+      onSettled: done,
+    }),
+  };
+}

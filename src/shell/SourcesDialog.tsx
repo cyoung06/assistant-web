@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../api/client";
-import { useState } from "react";
-import { useFeed, useRotateFeed, useSources, useSyncSource } from "../api/sources";
+import { useEffect, useRef, useState } from "react";
+import { useFeed, useMailAccount, useMailMutations, useRotateFeed, useSources, useSyncSource } from "../api/sources";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -71,7 +71,83 @@ function SourceRow({ source: s }: { source: SourceStatus }) {
           {busy ? "Syncing…" : "Sync now"}
         </button>
       )}
+      {s.type === "email" && <MailAccount onConnected={() => sync.mutate(s.type)} />}
     </li>
+  );
+}
+
+/**
+ * The Outlook sign-in: Microsoft's device code flow, so you sign in (with POSTECH's login) on
+ * Microsoft's own page and this app only ever sees a token.
+ */
+function MailAccount({ onConnected }: { onConnected: () => void }) {
+  const account = useMailAccount();
+  const { connect, disconnect } = useMailMutations();
+  const [copied, setCopied] = useState(false);
+  const a = account.data;
+  const wasPending = useRef(false);
+
+  // Sync right after a sign-in completes, so flagged mail shows up without waiting.
+  useEffect(() => {
+    if (a?.state === "pending") wasPending.current = true;
+    else if (wasPending.current && a?.state === "connected") {
+      wasPending.current = false;
+      onConnected();
+    }
+  }, [a?.state, onConnected]);
+
+  if (!a) return null;
+  const error = connect.error?.message ?? a.error;
+  return (
+    <div className={styles.mail}>
+      {!a.configured ? (
+        <p className={styles.meta}>Not set up on the server yet (Microsoft app ID and token key).</p>
+      ) : a.state === "pending" ? (
+        <>
+          <p className={styles.meta}>
+            Open{" "}
+            <a href={a.verificationUri ?? "https://microsoft.com/devicelogin"} target="_blank" rel="noreferrer">
+              {(a.verificationUri ?? "microsoft.com/devicelogin").replace(/^https?:\/\//, "")}
+            </a>{" "}
+            and enter this code, then sign in with your POSTECH account:
+          </p>
+          <div className={styles.codeRow}>
+            <code className={styles.code}>{a.userCode}</code>
+            <button
+              className="btn"
+              onClick={() => {
+                navigator.clipboard?.writeText(a.userCode ?? "").then(() => setCopied(true), () => {});
+              }}
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+            <button className="btn btn-ghost" onClick={() => disconnect.mutate()}>
+              Cancel
+            </button>
+          </div>
+          <p className={styles.meta}>Waiting for you to sign in…</p>
+        </>
+      ) : a.state === "connected" ? (
+        <div className={styles.codeRow}>
+          <span className={styles.meta}>
+            Connected as <strong>{a.email}</strong>. Flag a mail in Outlook to add it to Tasks; reply or unflag to finish it.
+          </span>
+          <button className="btn btn-ghost" onClick={() => disconnect.mutate()}>
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <>
+          {error && <p className={styles.error}>{error}</p>}
+          <p className={styles.meta}>Reply later: flag a mail in Outlook and it shows up in Tasks, labeled “reply”.</p>
+          <div>
+            <button className="btn btn-primary" onClick={() => connect.mutate()} disabled={connect.isPending}>
+              {a.state === "error" ? "Reconnect POSTECH mail" : "Connect POSTECH mail"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

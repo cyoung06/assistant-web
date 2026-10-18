@@ -46,6 +46,7 @@
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 12px;
@@ -122,4 +123,29 @@
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--surface-2);
+}
+
+.mail {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 22px;
+}
+.mail p {
+  margin: 0;
+}
+.codeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.code {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
