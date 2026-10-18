@@ -6,6 +6,19 @@ import { addDays, toDateString, toTimeString } from "./dates";
 
 /** How long a deadline marker is drawn in the time grid. It's a point in time, so this is only visual. */
 const DEADLINE_DRAW_MINUTES = 30;
+const LAST_DRAW_START_MINUTES = 24 * 60 - DEADLINE_DRAW_MINUTES;
+
+/**
+ * Where a deadline marker starts: at the due time, so its top edge marks the deadline. Deadlines in
+ * the last half hour of a day (e.g. 23:59) start at 23:30 instead, so the marker stays in its day.
+ */
+export function deadlineDrawStart(due: Date): Date {
+  const minutes = due.getHours() * 60 + due.getMinutes();
+  if (minutes <= LAST_DRAW_START_MINUTES) return due;
+  const start = new Date(due);
+  start.setHours(0, LAST_DRAW_START_MINUTES, 0, 0);
+  return start;
+}
 
 export interface EventShape {
   id: string;
@@ -40,13 +53,25 @@ export function toEvent(entry: CalendarEntry): EventShape {
       // FullCalendar's all-day end is exclusive; the API's is inclusive.
       return { ...base, start: entry.startDate!, end: addDays(entry.endDate!, 1), allDay: true, durationEditable: true };
     case "deadline": {
-      // Drawn as the half hour leading up to the deadline, so a 23:59 deadline stays inside its day.
-      const start = new Date(new Date(entry.due!).getTime() - DEADLINE_DRAW_MINUTES * 60_000).toISOString();
-      return { ...base, start, end: entry.due!, allDay: false, durationEditable: false };
+      // Midnight deadlines would sit at the very top of the time grid, scrolled out of view; show them
+      // in their day's all-day row instead (the label still says 00:00).
+      if (isMidnight(entry)) {
+        return { ...base, classNames: [...classNames, "is-midnight"], start: toDateString(new Date(entry.due!)), allDay: true, durationEditable: false };
+      }
+      const start = deadlineDrawStart(new Date(entry.due!));
+      const end = new Date(start.getTime() + DEADLINE_DRAW_MINUTES * 60_000);
+      return { ...base, start: start.toISOString(), end: end.toISOString(), allDay: false, durationEditable: false };
     }
     case "allDayDeadline":
       return { ...base, start: entry.date!, allDay: true, durationEditable: false };
   }
+}
+
+/** A timed deadline at exactly 00:00 local time. */
+export function isMidnight(entry: CalendarEntry): boolean {
+  if (entry.kind !== "deadline") return false;
+  const due = new Date(entry.due!);
+  return due.getHours() === 0 && due.getMinutes() === 0;
 }
 
 /** Where an event ended up after a drag or resize. [end] is exclusive for all-day events, as FullCalendar gives it. */
@@ -59,9 +84,11 @@ export interface Placement {
 /** The item change for moving or resizing one entry. Blocks change `at`; deadlines change `by`. */
 export function patchForPlacement(entry: CalendarEntry, p: Placement): ItemPatch {
   if (entry.kind === "deadline" || entry.kind === "allDayDeadline") {
-    if (p.allDay) return { by: { date: toDateString(p.start) } };
-    // A timed deadline marker ends at the due time.
-    const due = p.end ?? new Date(p.start.getTime() + DEADLINE_DRAW_MINUTES * 60_000);
+    // A midnight deadline moved along the all-day row stays at 00:00.
+    if (p.allDay) return isMidnight(entry) ? { by: { date: toDateString(p.start), time: "00:00" } } : { by: { date: toDateString(p.start) } };
+    // Keep the deadline's offset from its marker's start, so a 23:59 deadline moved to another day stays 23:59.
+    const offset = entry.kind === "deadline" ? new Date(entry.due!).getTime() - deadlineDrawStart(new Date(entry.due!)).getTime() : 0;
+    const due = new Date(p.start.getTime() + offset);
     return { by: { date: toDateString(due), time: toTimeString(due) } };
   }
   return { at: atForPlacement(p, entry) };

@@ -20,23 +20,42 @@ describe("toEvent", () => {
     expect(e).toMatchObject({ start: "2026-10-20", end: "2026-10-22", allDay: true });
   });
 
-  it("draws deadlines as short, non-resizable markers and flags overdue ones", () => {
-    const e = toEvent(entry({ kind: "deadline", due: "2026-10-23T23:59:00+09:00", overdue: true }));
+  it("draws deadlines as short, non-resizable markers starting at the due time", () => {
+    const e = toEvent(entry({ kind: "deadline", due: "2026-10-20T19:00:00+09:00", overdue: true }));
     expect(e.durationEditable).toBe(false);
     expect(e.classNames).toContain("is-overdue");
-    expect(e.end).toBe("2026-10-23T23:59:00+09:00");
+    expect(new Date(e.start).getTime()).toBe(new Date("2026-10-20T19:00:00+09:00").getTime());
     expect(new Date(e.end!).getTime() - new Date(e.start).getTime()).toBe(30 * 60_000);
+  });
+
+  it("shows midnight deadlines in their day's all-day row, and late ones inside their day", () => {
+    const midnight = toEvent(entry({ kind: "deadline", due: "2026-10-21T00:00:00+09:00" }));
+    expect(midnight).toMatchObject({ start: "2026-10-21", allDay: true });
+    const late = toEvent(entry({ kind: "deadline", due: "2026-10-23T23:59:00+09:00" }));
+    expect(new Date(late.start).getTime()).toBe(new Date("2026-10-23T23:30:00+09:00").getTime());
+    expect(new Date(late.end!).getTime()).toBe(new Date("2026-10-24T00:00:00+09:00").getTime());
   });
 });
 
 describe("patchForPlacement", () => {
   it("moves a deadline's by, keeping a time only in the time grid", () => {
-    const deadline = entry({ kind: "deadline", due: "2026-10-23T23:59:00+09:00" });
-    const moved = { start: new Date(2026, 9, 24, 17, 30), end: new Date(2026, 9, 24, 18, 0), allDay: false };
+    const deadline = entry({ kind: "deadline", due: "2026-10-20T19:00:00+09:00" });
+    const moved = { start: new Date(2026, 9, 24, 18, 0), end: new Date(2026, 9, 24, 18, 30), allDay: false };
     expect(patchForPlacement(deadline, moved)).toEqual({ by: { date: "2026-10-24", time: "18:00" } });
-    // Dragged in from the all-day row, FullCalendar gives no end: the marker's start + 30 minutes.
-    const fromAllDay = { start: new Date(2026, 9, 24, 9, 0), end: null, allDay: false };
-    expect(patchForPlacement(deadline, fromAllDay)).toEqual({ by: { date: "2026-10-24", time: "09:30" } });
+    // A 23:59 deadline (drawn from 23:30) moved to another day keeps its 23:59.
+    const late = entry({ kind: "deadline", due: "2026-10-23T23:59:00+09:00" });
+    const lateMoved = { start: new Date(2026, 9, 25, 23, 30), end: new Date(2026, 9, 26, 0, 0), allDay: false };
+    expect(patchForPlacement(late, lateMoved)).toEqual({ by: { date: "2026-10-25", time: "23:59" } });
+    // A midnight deadline moved along the all-day row keeps 00:00.
+    const midnight = entry({ kind: "deadline", due: "2026-10-21T00:00:00+09:00" });
+    expect(patchForPlacement(midnight, { start: new Date(2026, 9, 22), end: null, allDay: true })).toEqual({
+      by: { date: "2026-10-22", time: "00:00" },
+    });
+    // Dragged in from the all-day row, a date-only deadline gets the time it was dropped at.
+    const dateOnly = entry({ kind: "allDayDeadline", date: "2026-10-24" });
+    expect(patchForPlacement(dateOnly, { start: new Date(2026, 9, 24, 9, 0), end: null, allDay: false })).toEqual({
+      by: { date: "2026-10-24", time: "09:00" },
+    });
     expect(patchForPlacement(deadline, { start: new Date(2026, 9, 24), end: null, allDay: true })).toEqual({
       by: { date: "2026-10-24" },
     });
