@@ -1,7 +1,15 @@
 // Single-user sign-in with Google Identity Services. The API accepts the Google ID token as a bearer token.
-// When VITE_GOOGLE_CLIENT_ID is not set (local development), no token is sent.
+// The client ID comes from /config.js, written when the container starts (or VITE_GOOGLE_CLIENT_ID in
+// development). Without one, no token is sent.
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+declare global {
+  interface Window {
+    __ASSISTANT_CONFIG__?: { googleClientId?: string };
+  }
+}
+
+const CLIENT_ID =
+  window.__ASSISTANT_CONFIG__?.googleClientId || (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined);
 const STORAGE_KEY = "assistant.idToken";
 
 export const authEnabled = Boolean(CLIENT_ID);
