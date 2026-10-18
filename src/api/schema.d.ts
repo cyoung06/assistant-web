@@ -4,32 +4,32 @@
  */
 
 export interface paths {
-    "/api/v1/tags": {
+    "/api/v1/calendar": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["entries"];
         put?: never;
-        post: operations["create"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/quick-add/parse": {
+    "/api/v1/changes": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["changes"];
         put?: never;
-        post: operations["parse"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -50,38 +50,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/items/{id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["restore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tags/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get"];
-        put?: never;
-        post?: never;
-        delete: operations["delete"];
-        options?: never;
-        head?: never;
-        patch: operations["update"];
         trace?: never;
     };
     "/api/v1/items/{id}": {
@@ -116,75 +84,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/changes": {
+    "/api/v1/items/{id}/restore": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["changes"];
+        get?: never;
         put?: never;
-        post?: never;
+        post: operations["restore"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/calendar": {
+    "/api/v1/quick-add/parse": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["entries"];
+        get?: never;
         put?: never;
-        post?: never;
+        post: operations["parse"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch: operations["update"];
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        CreateTagRequest: {
-            /** Format: uuid */
-            id?: string | null;
-            name: string;
-            color: string;
-        };
-        TagResponse: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            color: string;
-            /** Format: int64 */
-            version: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: date-time */
-            deletedAt?: string | null;
-        };
-        QuickAddRequest: {
-            text: string;
-        };
         At: {
             allDay?: boolean;
             /** Format: date-time */
-            start?: string | null;
-            /** Format: date-time */
             end?: string | null;
             /** Format: date */
-            startDate?: string | null;
-            /** Format: date */
             endDate?: string | null;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
         };
         By: {
             /** Format: date */
@@ -192,140 +169,167 @@ export interface components {
             /** Format: time-local */
             time?: string | null;
         };
+        CalendarEntry: {
+            color?: string | null;
+            /** Format: date */
+            date?: string | null;
+            done: boolean;
+            /** Format: date-time */
+            due?: string | null;
+            /** Format: date-time */
+            end?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            /** Format: uuid */
+            itemId: string;
+            /** @enum {string} */
+            kind: "block" | "allDayBlock" | "deadline" | "allDayDeadline";
+            overdue: boolean;
+            /** Format: uuid */
+            parentId?: string | null;
+            session: boolean;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            title: string;
+        };
+        ChangesPage: {
+            /** Format: int64 */
+            cursor: number;
+            hasMore: boolean;
+            items: components["schemas"]["ItemResponse"][];
+            tags: components["schemas"]["TagResponse"][];
+        };
         CreateItemRequest: {
+            at?: components["schemas"]["At"] | null;
+            by?: components["schemas"]["By"] | null;
+            /** Format: date-time */
+            doneAt?: string | null;
             /** Format: uuid */
             id?: string | null;
-            title?: string;
-            notes?: string;
-            by?: components["schemas"]["By"] | null;
-            at?: components["schemas"]["At"] | null;
-            /** Format: uuid */
-            parentId?: string | null;
             /** Format: uuid */
             mainTagId?: string | null;
-            tagIds?: string[];
-            /** Format: date-time */
-            doneAt?: string | null;
+            notes?: string;
+            /** Format: uuid */
+            parentId?: string | null;
             source?: components["schemas"]["CreateSource"] | null;
+            tagIds?: string[];
+            title?: string;
         };
         CreateSource: {
+            ref?: string | null;
             /** @enum {string} */
             type: "manual" | "plms" | "email" | "upload";
-            ref?: string | null;
             url?: string | null;
         };
-        QuickAddResult: {
-            parsed: boolean;
-            draft: components["schemas"]["CreateItemRequest"];
-            unknownTags: string[];
+        CreateTagRequest: {
+            color: string;
+            /** Format: uuid */
+            id?: string | null;
+            name: string;
         };
         Derived: {
-            overdue: boolean;
             color?: string | null;
             displayTitle: string;
-            /** Format: int64 */
-            timeSpentMinutes: number;
+            overdue: boolean;
+            /** Format: int32 */
+            subItems: number;
+            /** Format: int32 */
+            subItemsDone: number;
             /** Format: int64 */
             timePlannedMinutes: number;
-        };
-        ItemResponse: {
-            /** Format: uuid */
-            id: string;
-            title: string;
-            notes: string;
-            by?: components["schemas"]["By"] | null;
-            at?: components["schemas"]["At"] | null;
-            /** Format: uuid */
-            parentId?: string | null;
-            /** Format: uuid */
-            mainTagId?: string | null;
-            tagIds: string[];
-            /** Format: date-time */
-            doneAt?: string | null;
-            source: components["schemas"]["Source"];
             /** Format: int64 */
-            version: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: date-time */
-            deletedAt?: string | null;
-            derived: components["schemas"]["Derived"];
-        };
-        Source: {
-            /** @enum {string} */
-            type: "manual" | "plms" | "email" | "upload";
-            ref?: string | null;
-            url?: string | null;
-        };
-        UpdateTagRequest: {
-            name?: string | null;
-            color?: string | null;
-        };
-        JsonNode: {
-            array?: boolean;
-            empty?: boolean;
-            null?: boolean;
-            float?: boolean;
-            pojo?: boolean;
-            int?: boolean;
-            long?: boolean;
-            number?: boolean;
-            /** @enum {string} */
-            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
-            string?: boolean;
-            missingNode?: boolean;
-            valueNode?: boolean;
-            object?: boolean;
-            short?: boolean;
-            double?: boolean;
-            bigDecimal?: boolean;
-            bigInteger?: boolean;
-            /** @deprecated */
-            textual?: boolean;
-            boolean?: boolean;
-            binary?: boolean;
-            container?: boolean;
-            integralNumber?: boolean;
-            floatingPointNumber?: boolean;
-            embeddedValue?: boolean;
+            timeSpentMinutes: number;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
             nextCursor?: string | null;
         };
-        ChangesPage: {
-            items: components["schemas"]["ItemResponse"][];
-            tags: components["schemas"]["TagResponse"][];
-            /** Format: int64 */
-            cursor: number;
-            hasMore: boolean;
-        };
-        CalendarEntry: {
+        ItemResponse: {
+            at?: components["schemas"]["At"] | null;
+            by?: components["schemas"]["By"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deletedAt?: string | null;
+            derived: components["schemas"]["Derived"];
+            /** Format: date-time */
+            doneAt?: string | null;
             /** Format: uuid */
-            itemId: string;
+            id: string;
+            /** Format: uuid */
+            mainTagId?: string | null;
+            notes: string;
             /** Format: uuid */
             parentId?: string | null;
-            /** @enum {string} */
-            kind: "block" | "allDayBlock" | "deadline" | "allDayDeadline";
+            source: components["schemas"]["Source"];
+            tagIds: string[];
             title: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        JsonNode: {
+            array?: boolean;
+            bigDecimal?: boolean;
+            bigInteger?: boolean;
+            binary?: boolean;
+            boolean?: boolean;
+            container?: boolean;
+            double?: boolean;
+            embeddedValue?: boolean;
+            empty?: boolean;
+            float?: boolean;
+            floatingPointNumber?: boolean;
+            int?: boolean;
+            integralNumber?: boolean;
+            long?: boolean;
+            missingNode?: boolean;
+            /** @enum {string} */
+            nodeType?: "ARRAY" | "BINARY" | "BOOLEAN" | "MISSING" | "NULL" | "NUMBER" | "OBJECT" | "POJO" | "STRING";
+            null?: boolean;
+            number?: boolean;
+            object?: boolean;
+            pojo?: boolean;
+            short?: boolean;
+            string?: boolean;
+            /** @deprecated */
+            textual?: boolean;
+            valueNode?: boolean;
+        };
+        QuickAddRequest: {
+            text: string;
+        };
+        QuickAddResult: {
+            draft: components["schemas"]["CreateItemRequest"];
+            parsed: boolean;
+            unknownTags: string[];
+        };
+        Source: {
+            ref?: string | null;
+            /** @enum {string} */
+            type: "manual" | "plms" | "email" | "upload";
+            url?: string | null;
+        };
+        TagResponse: {
+            color: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deletedAt?: string | null;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateTagRequest: {
             color?: string | null;
-            done: boolean;
-            session: boolean;
-            overdue: boolean;
-            /** Format: date-time */
-            start?: string | null;
-            /** Format: date-time */
-            end?: string | null;
-            /** Format: date */
-            startDate?: string | null;
-            /** Format: date */
-            endDate?: string | null;
-            /** Format: date-time */
-            due?: string | null;
-            /** Format: date */
-            date?: string | null;
+            name?: string | null;
         };
     };
     responses: never;
@@ -336,9 +340,15 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list: {
+    entries: {
         parameters: {
-            query?: never;
+            query: {
+                from: string;
+                to: string;
+                tags?: string[];
+                hideTags?: string[];
+                sessions?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -351,47 +361,22 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TagResponse"][];
+                    "*/*": components["schemas"]["CalendarEntry"][];
                 };
             };
         };
     };
-    create: {
+    changes: {
         parameters: {
-            query?: never;
+            query?: {
+                since?: number;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTagRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TagResponse"];
-                };
-            };
-        };
-    };
-    parse: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuickAddRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -399,7 +384,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["QuickAddResult"];
+                    "*/*": components["schemas"]["ChangesPage"];
                 };
             };
         };
@@ -454,100 +439,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ItemResponse"];
-                };
-            };
-        };
-    };
-    restore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ItemResponse"];
-                };
-            };
-        };
-    };
-    get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TagResponse"];
-                };
-            };
-        };
-    };
-    delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                "If-Match"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    update: {
-        parameters: {
-            query?: never;
-            header?: {
-                "If-Match"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTagRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["TagResponse"];
                 };
             };
         };
@@ -647,14 +538,13 @@ export interface operations {
             };
         };
     };
-    changes: {
+    restore: {
         parameters: {
-            query?: {
-                since?: number;
-                limit?: number;
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -665,20 +555,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ChangesPage"];
+                    "*/*": components["schemas"]["ItemResponse"];
                 };
             };
         };
     };
-    entries: {
+    parse: {
         parameters: {
-            query: {
-                from: string;
-                to: string;
-                tags?: string[];
-                hideTags?: string[];
-                sessions?: boolean;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuickAddRequest"];
             };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["QuickAddResult"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -691,7 +599,103 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CalendarEntry"][];
+                    "*/*": components["schemas"]["TagResponse"][];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TagResponse"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TagResponse"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TagResponse"];
                 };
             };
         };
