@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ItemPanel } from "./components/ItemPanel";
 import { PanelContext, type PanelApi, type PanelTarget } from "./components/panel";
 import { QuickAdd } from "./components/QuickAdd";
+import { SourcesDialog } from "./components/SourcesDialog";
 import { TagManager } from "./components/TagManager";
 import { ByTagPage } from "./pages/ByTagPage";
 import { CalendarPage } from "./pages/CalendarPage";
@@ -29,6 +30,7 @@ export function App() {
   const [page, setPage] = useState<Page>(initialPage);
   const [panel, setPanel] = useState<PanelTarget>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const panelApi = useMemo<PanelApi>(
     () => ({
@@ -62,6 +64,9 @@ export function App() {
           <div className={styles.quick}>
             <QuickAdd />
           </div>
+          <button className="btn btn-ghost" onClick={() => setSourcesOpen(true)}>
+            Sources
+          </button>
           <button className="btn btn-ghost" onClick={() => setTagsOpen(true)}>
             Tags
           </button>
@@ -75,6 +80,7 @@ export function App() {
       </div>
       <ItemPanel target={panel} />
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
+      {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}
     </PanelContext.Provider>
   );
 }

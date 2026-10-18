@@ -132,6 +132,26 @@ export function useItemMutations() {
   };
 }
 
+// ---- sources -------------------------------------------------------------------
+
+export function useSources() {
+  return useQuery({
+    queryKey: ["sources"],
+    queryFn: async () => unwrap(await api.GET("/api/v1/sources")),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useSyncSource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (type: string) =>
+      unwrap(await api.POST("/api/v1/sources/{type}/sync", { params: { path: { type } } })),
+    onSuccess: () =>
+      Promise.all([qc.invalidateQueries({ queryKey: ["sources"] }), qc.invalidateQueries({ queryKey: ["tags"] }), invalidateItems(qc)]),
+  });
+}
+
 export function useQuickAddParse() {
   return useMutation({
     mutationFn: async (text: string) => unwrap(await api.POST("/api/v1/quick-add/parse", { body: { text } })),

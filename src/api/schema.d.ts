@@ -116,6 +116,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{type}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["syncNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tags": {
         parameters: {
             query?: never;
@@ -312,6 +344,33 @@ export interface components {
             /** @enum {string} */
             type: "manual" | "plms" | "email" | "upload";
             url?: string | null;
+        };
+        SourceStatus: {
+            displayName: string;
+            enabled: boolean;
+            /** Format: int64 */
+            intervalMinutes: number;
+            lastError?: string | null;
+            lastReport?: components["schemas"]["SyncReport"] | null;
+            /** Format: date-time */
+            lastSuccessAt?: string | null;
+            /** Format: date-time */
+            lastSyncAt?: string | null;
+            syncing: boolean;
+            /** @enum {string} */
+            type: "manual" | "plms" | "email" | "upload";
+        };
+        SyncReport: {
+            /** Format: int32 */
+            completed?: number;
+            /** Format: int32 */
+            created?: number;
+            /** Format: int32 */
+            skippedDeleted?: number;
+            /** Format: int32 */
+            unchanged?: number;
+            /** Format: int32 */
+            updated?: number;
         };
         TagResponse: {
             color: string;
@@ -580,6 +639,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["QuickAddResult"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SourceStatus"][];
+                };
+            };
+        };
+    };
+    syncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SourceStatus"];
                 };
             };
         };

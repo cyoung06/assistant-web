@@ -9,6 +9,7 @@ export type At = Schemas["At"];
 export type CalendarEntry = Schemas["CalendarEntry"];
 export type CreateItem = Schemas["CreateItemRequest"];
 export type QuickAddResult = Schemas["QuickAddResult"];
+export type SourceStatus = Schemas["SourceStatus"];
 
 /** JSON merge patch for an item: absent fields stay, null clears. */
 export type ItemPatch = Partial<{
