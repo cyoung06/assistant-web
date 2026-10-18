@@ -1,0 +1,55 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.row:hover {
+  background: var(--surface-2);
+}
+
+.compact {
+  padding: 6px 4px;
+  border-bottom: 0;
+  border-radius: var(--radius-sm);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 650;
+}
+
+.done .title {
+  text-decoration: line-through;
+  color: var(--text-3);
+}

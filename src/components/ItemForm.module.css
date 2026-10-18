@@ -1,0 +1,53 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.title {
+  height: 44px;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+}
+.title:hover,
+.title:focus {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  padding-inline: 10px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.inline > input {
+  flex: 1 1 140px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+}
+
+.dash {
+  color: var(--text-3);
+}
