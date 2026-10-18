@@ -9,6 +9,16 @@
   background: var(--surface-2);
 }
 
+.spacer {
+  width: 18px;
+  flex: none;
+}
+
+.main:disabled {
+  cursor: default;
+  color: inherit;
+}
+
 .main {
   flex: 1;
   min-width: 0;

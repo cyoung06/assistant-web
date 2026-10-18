@@ -1,181 +1,123 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { RepeatRule } from "../lib/repeat";
-import { api, unwrap, type CreateItem, type Item, type ItemPatch, type Scope } from "./client";
+import { api, unwrap, type CreateEvent, type CreateTask, type TaskPatch } from "./client";
 
-export const keys = {
-  tags: ["tags"] as const,
-  items: (filter: ItemFilter) => ["items", filter] as const,
-  item: (id: string) => ["item", id] as const,
-  descendants: (id: string) => ["item", id, "descendants"] as const,
-  calendar: (from: string, to: string, hideTags: string[], sessions: boolean) =>
-    ["calendar", from, to, hideTags, sessions] as const,
-};
+/**
+ * Calendars or categories whose items stay out of the task views (Coming up, week strip, boards,
+ * Tasks): things that just happen at a time, like classes and holidays. They still show in Today.
+ */
+export const TASK_VIEW_HIDDEN = ["class", "holiday"];
 
-/** Anything that changes items can change lists, the calendar and other items' derived fields. */
-function invalidateItems(qc: QueryClient) {
-  return Promise.all([
-    qc.invalidateQueries({ queryKey: ["items"] }),
-    qc.invalidateQueries({ queryKey: ["item"] }),
-    qc.invalidateQueries({ queryKey: ["calendar"] }),
-  ]);
+/** Everything here reads from CalDAV, so any change can affect every view. */
+function invalidateAll(qc: QueryClient) {
+  return Promise.all(["tasks", "task", "agenda", "calendars"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
 }
 
-// ---- tags --------------------------------------------------------------------
+// ---- calendars ------------------------------------------------------------------
 
-export function useTags() {
+export function useCalendars() {
   return useQuery({
-    queryKey: keys.tags,
-    queryFn: async () => unwrap(await api.GET("/api/v1/tags")),
+    queryKey: ["calendars"],
+    queryFn: async () => unwrap(await api.GET("/api/v1/calendars")),
     staleTime: 60_000,
   });
 }
 
-/**
- * Tags whose items stay out of the task views (Coming up, week strip, boards, Items): items that
- * just happen at a time, like classes. They still show in the calendar and Today.
- */
-export const TASK_VIEW_HIDDEN_TAGS = ["class", "holiday"];
-
-export function useHiddenTagIds(): string[] {
-  const tags = useTags().data ?? [];
-  return tags.filter((t) => TASK_VIEW_HIDDEN_TAGS.includes(t.name.toLowerCase())).map((t) => t.id);
-}
-
-export function useTagMutations() {
+export function useCalendarMutations() {
   const qc = useQueryClient();
-  const done = () => Promise.all([qc.invalidateQueries({ queryKey: keys.tags }), invalidateItems(qc)]);
+  const done = () => invalidateAll(qc);
   return {
     create: useMutation({
-      mutationFn: async (body: { name: string; color: string }) => unwrap(await api.POST("/api/v1/tags", { body })),
+      mutationFn: async (body: { name: string; color: string }) => unwrap(await api.POST("/api/v1/calendars", { body })),
       onSuccess: done,
     }),
     update: useMutation({
       mutationFn: async ({ id, ...body }: { id: string; name?: string; color?: string }) =>
-        unwrap(await api.PATCH("/api/v1/tags/{id}", { params: { path: { id } }, body })),
+        unwrap(await api.PATCH("/api/v1/calendars/{id}", { params: { path: { id } }, body })),
       onSuccess: done,
     }),
     remove: useMutation({
-      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/tags/{id}", { params: { path: { id } } })),
+      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/calendars/{id}", { params: { path: { id } } })),
       onSuccess: done,
     }),
   };
 }
 
-// ---- items -------------------------------------------------------------------
+// ---- tasks ----------------------------------------------------------------------
 
-export interface ItemFilter {
-  tag?: string;
-  done?: boolean;
-  scheduled?: boolean;
-  overdue?: boolean;
-  topLevel?: boolean;
-  /** Leave out items carrying any of these tags. */
-  hideTags?: string[];
+export interface TaskFilter {
+  status?: "open" | "done" | "all";
+  calendarId?: string;
+  category?: string;
+  /** Leave out tasks whose calendar or a category has one of these names. */
+  hide?: string[];
+  parentId?: string;
   q?: string;
 }
 
-export function useItems(filter: ItemFilter) {
+export function useTasks(filter: TaskFilter) {
   return useQuery({
-    queryKey: keys.items(filter),
-    queryFn: async () => unwrap(await api.GET("/api/v1/items", { params: { query: { ...filter, limit: 200 } } })),
+    queryKey: ["tasks", filter],
+    queryFn: async () => unwrap(await api.GET("/api/v1/tasks", { params: { query: filter } })),
   });
 }
 
-export function useItem(id: string | null) {
+export function useTask(id: string | null) {
   return useQuery({
-    queryKey: keys.item(id ?? ""),
-    queryFn: async () => unwrap(await api.GET("/api/v1/items/{id}", { params: { path: { id: id! } } })),
+    queryKey: ["task", id ?? ""],
+    queryFn: async () => unwrap(await api.GET("/api/v1/tasks/{id}", { params: { path: { id: id! } } })),
     enabled: id !== null,
   });
 }
 
-export function useDescendants(id: string | null) {
-  return useQuery({
-    queryKey: keys.descendants(id ?? ""),
-    queryFn: async () => unwrap(await api.GET("/api/v1/items/{id}/descendants", { params: { path: { id: id! } } })),
-    enabled: id !== null,
-  });
+export function useTaskMutations() {
+  const qc = useQueryClient();
+  const done = () => invalidateAll(qc);
+  return {
+    create: useMutation({
+      mutationFn: async (body: CreateTask) => unwrap(await api.POST("/api/v1/tasks", { body })),
+      onSuccess: done,
+    }),
+    patch: useMutation({
+      mutationFn: async ({ id, patch }: { id: string; patch: TaskPatch }) =>
+        unwrap(await api.PATCH("/api/v1/tasks/{id}", { params: { path: { id } }, body: patch as never })),
+      onSuccess: done,
+      // A conflict means another app changed it; refetch so the latest shows.
+      onError: done,
+    }),
+    remove: useMutation({
+      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/tasks/{id}", { params: { path: { id } } })),
+      onSuccess: done,
+    }),
+  };
 }
 
-export function useCalendar(from: string, to: string, hideTags: string[], sessions: boolean) {
+// ---- events and agenda ------------------------------------------------------------
+
+export function useAgenda(from: string, to: string, hide: string[] = []) {
   return useQuery({
-    queryKey: keys.calendar(from, to, hideTags, sessions),
+    queryKey: ["agenda", from, to, hide],
     queryFn: async () =>
-      unwrap(
-        await api.GET("/api/v1/calendar", {
-          params: { query: { from, to, hideTags: hideTags.length ? hideTags : undefined, sessions } },
-        }),
-      ),
-    enabled: from !== "" && to !== "",
+      unwrap(await api.GET("/api/v1/agenda", { params: { query: { from, to, hide: hide.length ? hide : undefined } } })),
     placeholderData: (previous) => previous,
   });
 }
 
-export function useItemMutations() {
+export function useEventMutations() {
   const qc = useQueryClient();
-  const done = () => invalidateItems(qc);
+  const done = () => invalidateAll(qc);
   return {
     create: useMutation({
-      mutationFn: async (body: CreateItem) => unwrap(await api.POST("/api/v1/items", { body })),
+      mutationFn: async (body: CreateEvent) => unwrap(await api.POST("/api/v1/events", { body })),
       onSuccess: done,
-    }),
-    patch: useMutation({
-      mutationFn: async ({ id, patch, version, scope }: { id: string; patch: ItemPatch; version?: number; scope?: Scope }) =>
-        unwrap(
-          await api.PATCH("/api/v1/items/{id}", {
-            params: {
-              path: { id },
-              query: scope ? { scope } : undefined,
-              header: version === undefined ? undefined : { "If-Match": `"${version}"` },
-            },
-            body: patch as never,
-          }),
-        ),
-      onSuccess: (item: Item) => {
-        qc.setQueryData(keys.item(item.id), item);
-        return done();
-      },
-      // A version conflict means the cached copy is stale; refetch it.
-      onError: done,
     }),
     remove: useMutation({
-      mutationFn: async ({ id, scope }: { id: string; scope?: Scope }) =>
-        unwrap(await api.DELETE("/api/v1/items/{id}", { params: { path: { id }, query: scope ? { scope } : undefined } })),
-      onSuccess: done,
-    }),
-    repeat: useMutation({
-      mutationFn: async ({ id, rule }: { id: string; rule: RepeatRule }) =>
-        unwrap(await api.POST("/api/v1/items/{id}/repeat", { params: { path: { id } }, body: rule })),
-      onSuccess: done,
-    }),
-    restore: useMutation({
-      mutationFn: async (id: string) =>
-        unwrap(await api.POST("/api/v1/items/{id}/restore", { params: { path: { id } } })),
+      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/events/{id}", { params: { path: { id } } })),
       onSuccess: done,
     }),
   };
 }
 
-// ---- series --------------------------------------------------------------------
-
-export function useSeries(id: string | null) {
-  return useQuery({
-    queryKey: ["series", id ?? ""],
-    queryFn: async () => unwrap(await api.GET("/api/v1/series/{id}", { params: { path: { id: id! } } })),
-    enabled: id !== null,
-  });
-}
-
-export function useChangeRepeat() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, rule }: { id: string; rule: RepeatRule }) =>
-      unwrap(await api.PUT("/api/v1/series/{id}/repeat", { params: { path: { id } }, body: rule })),
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["series"] }), invalidateItems(qc)]),
-  });
-}
-
-// ---- sources -------------------------------------------------------------------
+// ---- sources ----------------------------------------------------------------------
 
 export function useSources() {
   return useQuery({
@@ -188,14 +130,12 @@ export function useSources() {
 export function useSyncSource() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (type: string) =>
-      unwrap(await api.POST("/api/v1/sources/{type}/sync", { params: { path: { type } } })),
-    onSuccess: () =>
-      Promise.all([qc.invalidateQueries({ queryKey: ["sources"] }), qc.invalidateQueries({ queryKey: ["tags"] }), invalidateItems(qc)]),
+    mutationFn: async (type: string) => unwrap(await api.POST("/api/v1/sources/{type}/sync", { params: { path: { type } } })),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["sources"] }), invalidateAll(qc)]),
   });
 }
 
-// ---- calendar feed (iCal export) -------------------------------------------------
+// ---- calendar feed (iCal export) -----------------------------------------------------
 
 export function useFeed() {
   return useQuery({ queryKey: ["feed"], queryFn: async () => unwrap(await api.GET("/api/v1/ical/feed")) });
@@ -208,6 +148,8 @@ export function useRotateFeed() {
     onSuccess: (feed) => qc.setQueryData(["feed"], feed),
   });
 }
+
+// ---- quick add ----------------------------------------------------------------------
 
 export function useQuickAddParse() {
   return useMutation({

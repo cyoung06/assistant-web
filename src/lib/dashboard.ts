@@ -1,13 +1,13 @@
-// Grouping of calendar entries for the dashboard: today's schedule and deadlines, the next days,
+// Grouping of agenda entries for the dashboard: today's schedule and deadlines, the next days,
 // and per-day counts for the week strip. Days are local dates (YYYY-MM-DD).
 
-import type { CalendarEntry, Item } from "../api/client";
+import type { AgendaEntry, Task } from "../api/client";
 import { addDays, parseDate, toDateString } from "./dates";
 
-export const isDeadline = (e: CalendarEntry) => e.kind === "deadline" || e.kind === "allDayDeadline";
+export const isDeadline = (e: AgendaEntry) => e.kind === "deadline" || e.kind === "allDayDeadline";
 
 /** Every local day an entry touches. All-day blocks can span several days. */
-export function entryDays(e: CalendarEntry): string[] {
+export function entryDays(e: AgendaEntry): string[] {
   switch (e.kind) {
     case "block":
       return [toDateString(new Date(e.start!))];
@@ -24,7 +24,7 @@ export function entryDays(e: CalendarEntry): string[] {
 }
 
 /** Sort key within a day: all-day entries first, then by time. */
-export function entryTime(e: CalendarEntry): number {
+export function entryTime(e: AgendaEntry): number {
   if (e.kind === "block") return new Date(e.start!).getTime();
   if (e.kind === "deadline") return new Date(e.due!).getTime();
   return Number.NEGATIVE_INFINITY;
@@ -32,12 +32,12 @@ export function entryTime(e: CalendarEntry): number {
 
 export interface Day {
   date: string;
-  schedule: CalendarEntry[];
-  deadlines: CalendarEntry[];
+  schedule: AgendaEntry[];
+  deadlines: AgendaEntry[];
 }
 
 /** [days] consecutive days starting at [from], each with its blocks and deadlines in time order. */
-export function groupByDay(entries: CalendarEntry[], from: string, days: number): Day[] {
+export function groupByDay(entries: AgendaEntry[], from: string, days: number): Day[] {
   const result: Day[] = [];
   for (let i = 0; i < days; i++) result.push({ date: addDays(from, i), schedule: [], deadlines: [] });
   const byDate = new Map(result.map((d) => [d.date, d]));
@@ -60,19 +60,19 @@ export function weekStart(date: string): string {
 }
 
 /** Entries that still need attention: not done. A timed block that has already ended doesn't either. */
-export function isOpen(e: CalendarEntry, now: Date): boolean {
+export function isOpen(e: AgendaEntry, now: Date): boolean {
   if (e.done) return false;
   if (e.kind === "block") return new Date(e.end!) > now;
   return true;
 }
 
 /**
- * Items overdue from before [today], oldest deadline first. Deadlines that passed earlier today
+ * Tasks overdue from before [today], oldest deadline first. Deadlines that passed earlier today
  * stay in today's list (marked late) rather than showing twice.
  */
-export function overdueBefore(items: Item[], today: string): Item[] {
-  const key = (i: Item) => `${i.by?.date ?? "9999"}T${i.by?.time ?? "99"}`;
-  return items.filter((i) => i.by && i.by.date < today).sort((a, b) => key(a).localeCompare(key(b)));
+export function overdueBefore(tasks: Task[], today: string): Task[] {
+  const key = (t: Task) => `${t.due?.date ?? "9999"}T${t.due?.time ?? "99"}`;
+  return tasks.filter((t) => t.overdue && t.due && t.due.date < today).sort((a, b) => key(a).localeCompare(key(b)));
 }
 
 export const today = () => toDateString(new Date());

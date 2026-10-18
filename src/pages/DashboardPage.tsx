@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { useCalendar, useHiddenTagIds, useItems } from "../api/queries";
+import { TASK_VIEW_HIDDEN, useAgenda, useTasks } from "../api/queries";
 import { EntryRow } from "../components/EntryRow";
-import { ItemRow } from "../components/ItemRow";
+import { TaskRow } from "../components/TaskRow";
 import { addDays, formatDay, parseDate } from "../lib/dates";
 import { entryTime, groupByDay, isOpen, overdueBefore, today, weekStart, type Day } from "../lib/dashboard";
 import styles from "./DashboardPage.module.css";
@@ -11,33 +11,26 @@ const longDate = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "lon
 const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short" });
 
 /** The start page: what's late, what's on today, what's coming, and what still needs a date. */
-export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }) {
+export function DashboardPage() {
   const day = today();
   const from = weekStart(day);
-  const to = addDays(day, UPCOMING_DAYS + 1);
-  const calendar = useCalendar(from, to, [], true);
-  // Coming up and the week strip leave out tagged time-slot items like classes; Today shows everything.
-  const hidden = useHiddenTagIds();
-  const taskCalendar = useCalendar(from, to, hidden, true);
-  const overdue = useItems({ overdue: true });
-  const waiting = useItems({ done: false, scheduled: false, topLevel: true });
+  const last = addDays(day, UPCOMING_DAYS);
+  const count = (parseDate(last).getTime() - parseDate(from).getTime()) / 86_400_000 + 1;
+  const calendar = useAgenda(from, last);
+  // Coming up and the week strip leave out time-slot things like classes and holidays; Today shows everything.
+  const taskCalendar = useAgenda(from, last, TASK_VIEW_HIDDEN);
+  const open = useTasks({ status: "open", hide: TASK_VIEW_HIDDEN });
 
-  const days = useMemo(
-    () => groupByDay(calendar.data ?? [], from, (parseDate(to).getTime() - parseDate(from).getTime()) / 86_400_000),
-    [calendar.data, from, to],
-  );
+  const days = useMemo(() => groupByDay(calendar.data ?? [], from, count), [calendar.data, from, count]);
   const byDate = new Map(days.map((d) => [d.date, d]));
   const todayInfo = byDate.get(day) ?? { date: day, schedule: [], deadlines: [] };
-  const taskDays = useMemo(
-    () => groupByDay(taskCalendar.data ?? [], from, (parseDate(to).getTime() - parseDate(from).getTime()) / 86_400_000),
-    [taskCalendar.data, from, to],
-  );
+  const taskDays = useMemo(() => groupByDay(taskCalendar.data ?? [], from, count), [taskCalendar.data, from, count]);
   const upcoming = taskDays.filter((d) => d.date > day);
   const week = taskDays.filter((d) => d.date < addDays(from, 7));
   const now = new Date();
 
-  const overdueItems = overdueBefore(overdue.data?.items ?? [], day);
-  const waitingItems = waiting.data?.items ?? [];
+  const overdueItems = overdueBefore(open.data ?? [], day);
+  const waitingItems = (open.data ?? []).filter((t) => !t.due && !t.parentId);
   const todayOpen = [...todayInfo.schedule, ...todayInfo.deadlines].filter((e) => isOpen(e, now)).length;
 
   return (
@@ -49,7 +42,7 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
             {calendar.isSuccess ? summary(overdueItems.length, todayOpen, waitingItems.length) : "\u00a0"}
           </p>
         </div>
-        <WeekStrip week={week} today={day} onOpen={onOpenCalendar} />
+        <WeekStrip week={week} today={day} />
       </header>
 
       <div className={styles.grid}>
@@ -60,7 +53,7 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
                 Overdue <span className={styles.count}>{overdueItems.length}</span>
               </h2>
               {overdueItems.map((item) => (
-                <ItemRow key={item.id} item={item} compact />
+                <TaskRow key={item.id} task={item} compact />
               ))}
             </section>
           )}
@@ -73,11 +66,11 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
               <p className={styles.empty}>Nothing scheduled or due today.</p>
             )}
             {todayInfo.schedule.map((e) => (
-              <EntryRow key={`${e.itemId}:${e.kind}`} entry={e} past={!isOpen(e, now) && !e.done} />
+              <EntryRow key={`${e.id}:${e.kind}:${e.start ?? e.date ?? e.due}`} entry={e} past={!isOpen(e, now) && !e.done} />
             ))}
             {todayInfo.deadlines.length > 0 && <h3>Due today</h3>}
             {todayInfo.deadlines.map((e) => (
-              <EntryRow key={`${e.itemId}:${e.kind}`} entry={e} />
+              <EntryRow key={`${e.id}:${e.kind}:${e.start ?? e.date ?? e.due}`} entry={e} />
             ))}
           </section>
 
@@ -91,7 +84,7 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
                 <div key={d.date} className={styles.day}>
                   <h3>{d.date === addDays(day, 1) ? `Tomorrow · ${formatDay(d.date)}` : formatDay(d.date)}</h3>
                   {[...d.deadlines, ...d.schedule].sort((a, b) => entryTime(a) - entryTime(b)).map((e) => (
-                    <EntryRow key={`${e.itemId}:${e.kind}`} entry={e} />
+                    <EntryRow key={`${e.id}:${e.kind}:${e.start ?? e.date ?? e.due}`} entry={e} />
                   ))}
                 </div>
               ),
@@ -104,9 +97,9 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
             <h2>
               Needs a date <span className={styles.count}>{waitingItems.length}</span>
             </h2>
-            {waiting.isSuccess && waitingItems.length === 0 && <p className={styles.empty}>Everything has a date.</p>}
+            {open.isSuccess && waitingItems.length === 0 && <p className={styles.empty}>Everything has a date.</p>}
             {waitingItems.map((item) => (
-              <ItemRow key={item.id} item={item} compact />
+              <TaskRow key={item.id} task={item} compact />
             ))}
           </section>
         </aside>
@@ -124,9 +117,9 @@ function summary(overdue: number, today: number, waiting: number): string {
   return parts.join(" · ");
 }
 
-function WeekStrip({ week, today, onOpen }: { week: Day[]; today: string; onOpen: () => void }) {
+function WeekStrip({ week, today }: { week: Day[]; today: string }) {
   return (
-    <button className={styles.week} onClick={onOpen} aria-label="Open this week in the calendar">
+    <div className={styles.week} aria-label="This week">
       {week.map((d) => {
         const blocks = d.schedule.length;
         const due = d.deadlines.length;
@@ -145,6 +138,6 @@ function WeekStrip({ week, today, onOpen }: { week: Day[]; today: string; onOpen
           </span>
         );
       })}
-    </button>
+    </div>
   );
 }

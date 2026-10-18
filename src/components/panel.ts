@@ -1,17 +1,17 @@
 import { createContext, useContext } from "react";
-import type { CreateItem } from "../api/client";
+import type { CreateTask } from "../api/client";
 
-/** What the side panel shows: an existing item, or a new item that isn't saved yet. */
-export type PanelTarget = { kind: "item"; id: string } | { kind: "draft"; draft: CreateItem } | null;
+/** What the side panel shows: an existing task, or a new task that isn't saved yet. */
+export type PanelTarget = { kind: "task"; id: string } | { kind: "draft"; draft: CreateTask } | null;
 
 export interface PanelApi {
-  openItem: (id: string) => void;
-  openDraft: (draft: CreateItem) => void;
+  openTask: (id: string) => void;
+  openDraft: (draft: CreateTask) => void;
   close: () => void;
 }
 
 export const PanelContext = createContext<PanelApi>({
-  openItem: () => {},
+  openTask: () => {},
   openDraft: () => {},
   close: () => {},
 });

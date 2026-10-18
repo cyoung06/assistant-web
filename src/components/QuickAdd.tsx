@@ -1,23 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import type { CreateItem, QuickAddResult } from "../api/client";
-import { useItemMutations, useQuickAddParse, useTagMutations, useTags } from "../api/queries";
+import type { QuickAddDraft, QuickAddResult } from "../api/client";
+import { useCalendars, useEventMutations, useQuickAddParse, useTaskMutations } from "../api/queries";
 import { formatDay, formatTime, shortTime } from "../lib/dates";
 import { usePanel } from "./panel";
 import { TagDot } from "./TagPicker";
 import styles from "./QuickAdd.module.css";
 
-const NEW_TAG_COLORS = ["#2F5BE0", "#E0642F", "#1F8A4C", "#A23FD1", "#D13B6E", "#0E8C9C", "#B88A00", "#7A5230", "#5B6CFF", "#C2410C", "#4D7C0F", "#BE185D"];
-
-/** Free-text capture: the API's LLM turns it into an item, shown for confirmation before saving. */
+/** Free-text capture: the LLM turns it into a task or an event, shown for confirmation before saving. */
 export function QuickAdd() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
   const [result, setResult] = useState<QuickAddResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const parse = useQuickAddParse();
-  const { create } = useItemMutations();
-  const tagMutations = useTagMutations();
-  const tags = useTags().data ?? [];
+  const tasks = useTaskMutations();
+  const events = useEventMutations();
+  const calendars = useCalendars().data ?? [];
   const { openDraft } = usePanel();
 
   // Cmd/Ctrl+K focuses quick add from anywhere.
@@ -50,27 +48,30 @@ export function QuickAdd() {
     setResult(await parse.mutateAsync(text));
   };
 
-  const save = async (draft: CreateItem) => {
-    await create.mutateAsync(draft);
-    setNotice(`Added “${draft.title}”`);
+  const save = async (d: QuickAddDraft) => {
+    if (d.kind === "event") {
+      await events.create.mutateAsync({
+        title: d.title,
+        notes: d.notes,
+        calendarId: d.calendarId,
+        categories: d.categories,
+        start: d.start,
+        end: d.end,
+        startDate: d.startDate,
+        endDate: d.endDate,
+      });
+    } else {
+      await tasks.create.mutateAsync({ title: d.title, notes: d.notes, calendarId: d.calendarId, categories: d.categories, due: d.due });
+    }
+    setNotice(`Added “${d.title}”`);
     reset();
   };
 
-  const createTag = async (name: string) => {
-    // The palette color fewest tags already use, so new tags don't repeat existing colors.
-    const used = (c: string) => tags.filter((t) => t.color.toUpperCase() === c).length;
-    const color = [...NEW_TAG_COLORS].sort((a, b) => used(a) - used(b))[0]!;
-    const tag = await tagMutations.create.mutateAsync({ name, color });
-    setResult((r) =>
-      r && {
-        ...r,
-        unknownTags: r.unknownTags.filter((t) => t !== name),
-        draft: { ...r.draft, tagIds: [...(r.draft.tagIds ?? []), tag.id], mainTagId: r.draft.mainTagId ?? tag.id },
-      },
-    );
-  };
-
   const draft = result?.draft;
+  const calendar = calendars.find((c) => c.id === draft?.calendarId);
+  const saving = tasks.create.isPending || events.create.isPending;
+  const error = parse.error ?? tasks.create.error ?? events.create.error;
+
   return (
     <div className={styles.wrap}>
       <form
@@ -98,69 +99,63 @@ export function QuickAdd() {
       </form>
 
       {parse.isPending && <div className={styles.preview}>Reading…</div>}
-      {parse.error && <div className={`${styles.preview} ${styles.error}`}>{parse.error.message}</div>}
+      {error && !parse.isPending && <div className={`${styles.preview} ${styles.error}`}>{error.message}</div>}
 
       {draft && (
-        <div className={styles.preview} role="dialog" aria-label="Confirm new item">
-          {!result.parsed && <p className={styles.note}>Couldn’t read a date from this. It will be saved as a plain item.</p>}
+        <div className={styles.preview} role="dialog" aria-label="Confirm">
+          {!result.parsed && <p className={styles.note}>Couldn’t read a date from this. It will be saved as a task without one.</p>}
           <input
+            id="quick-add-title"
             className={`input ${styles.title}`}
-            value={draft.title ?? ""}
+            value={draft.title}
             aria-label="Title"
             onChange={(e) => setResult({ ...result, draft: { ...draft, title: e.target.value } })}
           />
           <div className={styles.facts}>
-            {draft.by && (
+            <span className={styles.fact}>
+              <b>{draft.kind === "event" ? "Event" : "Task"}</b>
+            </span>
+            {draft.due && (
               <span className={styles.fact}>
-                <b>Due</b> {formatDay(draft.by.date)}
-                {draft.by.time ? ` ${shortTime(draft.by.time)}` : ""}
+                <b>Due</b> {formatDay(draft.due.date)}
+                {draft.due.time ? ` ${shortTime(draft.due.time)}` : ""}
               </span>
             )}
-            {draft.at && (
+            {draft.kind === "event" && (
               <span className={styles.fact}>
                 <b>At</b>{" "}
-                {draft.at.allDay
-                  ? formatDay(draft.at.startDate!)
-                  : `${formatDay(new Date(draft.at.start!))} ${formatTime(draft.at.start!)}–${formatTime(draft.at.end!)}`}
+                {draft.startDate
+                  ? formatDay(draft.startDate)
+                  : `${formatDay(new Date(draft.start!))} ${formatTime(draft.start!)}–${formatTime(draft.end!)}`}
               </span>
             )}
-            {!draft.by && !draft.at && <span className={styles.fact}>No date. You can sort it later.</span>}
-            {(draft.tagIds ?? []).map((id) => {
-              const tag = tags.find((t) => t.id === id);
-              return (
-                tag && (
-                  <span key={id} className={styles.fact}>
-                    <TagDot color={tag.color} /> {tag.name}
-                  </span>
-                )
-              );
-            })}
-            {result.unknownTags.map((name) => (
-              <button key={name} type="button" className={styles.newTag} onClick={() => createTag(name)}>
-                + Create tag “{name}”
-              </button>
+            {draft.kind === "task" && !draft.due && <span className={styles.fact}>No date. You can sort it later.</span>}
+            <span className={styles.fact}>
+              <TagDot color={calendar?.color} /> {calendar?.name ?? "Inbox"}
+            </span>
+            {draft.categories?.map((c) => (
+              <span key={c} className={styles.fact}>
+                {c}
+              </span>
             ))}
           </div>
           <div className={styles.actions}>
             <button className="btn btn-ghost" type="button" onClick={reset}>
               Cancel
             </button>
-            {(draft.by || draft.at) && (
-              <button className="btn" type="button" onClick={() => save({ ...draft, by: null, at: null })}>
-                Save without date
+            {draft.kind === "task" && (
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  openDraft({ title: draft.title, notes: draft.notes, due: draft.due, calendarId: draft.calendarId, categories: draft.categories });
+                  reset();
+                }}
+              >
+                Details
               </button>
             )}
-            <button
-              className="btn"
-              type="button"
-              onClick={() => {
-                openDraft(draft);
-                reset();
-              }}
-            >
-              Details
-            </button>
-            <button className="btn btn-primary" type="button" onClick={() => save(draft)} disabled={create.isPending}>
+            <button className="btn btn-primary" type="button" onClick={() => save(draft)} disabled={saving}>
               Save ↵
             </button>
           </div>

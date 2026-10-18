@@ -35,6 +35,7 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
             <SourceRow key={s.type} source={s} />
           ))}
         </ul>
+        <Devices />
         <CalendarFeed />
       </div>
     </div>
@@ -130,6 +131,30 @@ function CalendarFeed() {
           {confirming && <p className={styles.hint}>Existing subscriptions stop updating; subscribe again with the new URL.</p>}
         </>
       )}
+    </section>
+  );
+}
+
+/** How to connect Calendar, Reminders and Android apps to the CalDAV server. */
+function Devices() {
+  const url = "https://dav.lonk-kelvin.ts.net";
+  return (
+    <section className={styles.feed}>
+      <h3>Connect your apps (CalDAV)</h3>
+      <p className={styles.hint}>
+        Events and tasks live on your CalDAV server, so any CalDAV app shows and edits them. Server: <code>{url}</code>, user{" "}
+        <code>syeyoung</code>, password from your secrets. Tailnet only.
+      </p>
+      <ul className={styles.steps}>
+        <li>
+          <b>Mac:</b> System Settings → Internet Accounts → Add Other Account → CalDAV account → Manual, with the server above. Calendar
+          and Reminders then show your calendars.
+        </li>
+        <li>
+          <b>Android:</b> install DAVx⁵ and Tasks.org, add an account in DAVx⁵ with “Login with URL and user name”, then enable the
+          calendars. Your calendar app shows events; Tasks.org shows tasks with categories, sub-tasks and done.
+        </li>
+      </ul>
     </section>
   );
 }

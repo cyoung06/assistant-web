@@ -38,9 +38,6 @@
   background: var(--surface);
   min-width: min(100%, 420px);
 }
-.week:hover {
-  border-color: var(--line-strong);
-}
 .weekDay {
   display: grid;
   justify-items: center;

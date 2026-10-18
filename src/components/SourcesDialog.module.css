@@ -107,3 +107,19 @@
 .feedActions a {
   text-decoration: none;
 }
+
+.steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+.feed code {
+  font-size: var(--text-xs);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+}

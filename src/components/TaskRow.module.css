@@ -15,7 +15,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* Dot and title on the first line; dates and badges under the title. */
+/* Dot and title on the first line; due date, calendar and categories under the title. */
 .main {
   flex: 1;
   min-width: 0;
@@ -45,6 +45,12 @@
   gap: 8px;
   font-size: var(--text-xs);
   color: var(--text-2);
+}
+
+.category {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
 }
 
 .overdue {

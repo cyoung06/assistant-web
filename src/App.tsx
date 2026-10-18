@@ -1,25 +1,22 @@
 import { useMemo, useState } from "react";
-import { ItemPanel } from "./components/ItemPanel";
+import { CalendarsDialog } from "./components/CalendarsDialog";
 import { PanelContext, type PanelApi, type PanelTarget } from "./components/panel";
 import { QuickAdd } from "./components/QuickAdd";
-import { ScopeProvider } from "./components/ScopePrompt";
 import { SourcesDialog } from "./components/SourcesDialog";
-import { TagManager } from "./components/TagManager";
-import { ByTagPage } from "./pages/ByTagPage";
-import { CalendarPage } from "./pages/CalendarPage";
+import { TaskPanel } from "./components/TaskPanel";
+import { ByCalendarPage } from "./pages/ByCalendarPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { ItemsPage } from "./pages/ItemsPage";
+import { TasksPage } from "./pages/TasksPage";
 import styles from "./App.module.css";
 
-const PAGES = ["dashboard", "calendar", "items", "by-tag"] as const;
+const PAGES = ["dashboard", "tasks", "by-calendar"] as const;
 type Page = (typeof PAGES)[number];
 
 /** Main screens first; custom views after the divider. */
 const NAV: { page: Page; label: string; view?: boolean }[] = [
   { page: "dashboard", label: "Dashboard" },
-  { page: "calendar", label: "Calendar" },
-  { page: "items", label: "Items" },
-  { page: "by-tag", label: "By tag", view: true },
+  { page: "tasks", label: "Tasks" },
+  { page: "by-calendar", label: "By calendar", view: true },
 ];
 
 function initialPage(): Page {
@@ -35,7 +32,7 @@ export function App() {
 
   const panelApi = useMemo<PanelApi>(
     () => ({
-      openItem: (id) => setPanel({ kind: "item", id }),
+      openTask: (id) => setPanel({ kind: "task", id }),
       openDraft: (draft) => setPanel({ kind: "draft", draft }),
       close: () => setPanel(null),
     }),
@@ -48,7 +45,6 @@ export function App() {
   };
 
   return (
-    <ScopeProvider>
       <PanelContext.Provider value={panelApi}>
         <div className={styles.app}>
           <header className={styles.header}>
@@ -70,20 +66,18 @@ export function App() {
               Sources
             </button>
             <button className="btn btn-ghost" onClick={() => setTagsOpen(true)}>
-              Tags
+              Calendars
             </button>
           </header>
           <main className={styles.main}>
-            {page === "dashboard" && <DashboardPage onOpenCalendar={() => go("calendar")} />}
-            {page === "calendar" && <CalendarPage />}
-            {page === "items" && <ItemsPage />}
-            {page === "by-tag" && <ByTagPage />}
+            {page === "dashboard" && <DashboardPage />}
+            {page === "tasks" && <TasksPage />}
+            {page === "by-calendar" && <ByCalendarPage />}
           </main>
         </div>
-        <ItemPanel target={panel} />
-        {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
+        <TaskPanel target={panel} />
+        {tagsOpen && <CalendarsDialog onClose={() => setTagsOpen(false)} />}
         {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}
       </PanelContext.Provider>
-    </ScopeProvider>
   );
 }

@@ -1,56 +1,7 @@
-.list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 28px;
-  padding: 0 4px 0 4px;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  font-size: var(--text-sm);
-}
-.chip.selected {
-  border-color: var(--tag);
-  background: color-mix(in srgb, var(--tag) 14%, var(--surface));
-}
-
-.name {
-  border: 0;
-  background: none;
-  padding: 0 6px;
-  height: 100%;
-  font-weight: 550;
-}
-
-.dot {
-  width: 14px;
-  height: 14px;
-  margin-left: 4px;
-  border-radius: 50%;
-  border: 2px solid var(--tag);
-  background: transparent;
-  padding: 0;
-}
-.dot.main {
-  background: var(--tag);
-}
-
 .staticDot {
   display: inline-block;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   flex: none;
-}
-
-.empty {
-  margin: 0;
-  color: var(--text-3);
-  font-size: var(--text-sm);
 }

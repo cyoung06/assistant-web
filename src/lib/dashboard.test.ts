@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { CalendarEntry } from "../api/client";
+import type { AgendaEntry } from "../api/client";
 import { entryDays, groupByDay, isOpen, weekStart } from "./dashboard";
 
 // Runs with TZ=Asia/Seoul (see the npm test script).
 
-const entry = (over: Partial<CalendarEntry>): CalendarEntry => ({
-  itemId: "i",
+const entry = (over: Partial<AgendaEntry>): AgendaEntry => ({
+  id: "i",
   kind: "block",
   title: "x",
+  calendarName: "",
+  categories: [],
   done: false,
-  session: false,
   overdue: false,
+  repeats: false,
   ...over,
 });
 
@@ -35,19 +37,19 @@ describe("groupByDay", () => {
   it("splits blocks from deadlines and orders each day", () => {
     const days = groupByDay(
       [
-        entry({ itemId: "late", kind: "block", start: "2026-10-19T14:00:00+09:00", end: "2026-10-19T16:00:00+09:00" }),
-        entry({ itemId: "early", kind: "block", start: "2026-10-19T09:30:00+09:00", end: "2026-10-19T10:45:00+09:00" }),
-        entry({ itemId: "allday", kind: "allDayBlock", startDate: "2026-10-19", endDate: "2026-10-19" }),
-        entry({ itemId: "due", kind: "deadline", due: "2026-10-19T23:59:00+09:00" }),
-        entry({ itemId: "outside", kind: "allDayDeadline", date: "2026-10-30" }),
+        entry({ id: "late", kind: "block", start: "2026-10-19T14:00:00+09:00", end: "2026-10-19T16:00:00+09:00" }),
+        entry({ id: "early", kind: "block", start: "2026-10-19T09:30:00+09:00", end: "2026-10-19T10:45:00+09:00" }),
+        entry({ id: "allday", kind: "allDayBlock", startDate: "2026-10-19", endDate: "2026-10-19" }),
+        entry({ id: "due", kind: "deadline", due: "2026-10-19T23:59:00+09:00" }),
+        entry({ id: "outside", kind: "allDayDeadline", date: "2026-10-30" }),
       ],
       "2026-10-18",
       3,
     );
     expect(days.map((d) => d.date)).toEqual(["2026-10-18", "2026-10-19", "2026-10-20"]);
-    expect(days[1]!.schedule.map((e) => e.itemId)).toEqual(["allday", "early", "late"]);
-    expect(days[1]!.deadlines.map((e) => e.itemId)).toEqual(["due"]);
-    expect(days.flatMap((d) => [...d.schedule, ...d.deadlines]).some((e) => e.itemId === "outside")).toBe(false);
+    expect(days[1]!.schedule.map((e) => e.id)).toEqual(["allday", "early", "late"]);
+    expect(days[1]!.deadlines.map((e) => e.id)).toEqual(["due"]);
+    expect(days.flatMap((d) => [...d.schedule, ...d.deadlines]).some((e) => e.id === "outside")).toBe(false);
   });
 });
 
