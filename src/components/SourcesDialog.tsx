@@ -1,5 +1,6 @@
 import type { SourceStatus } from "../api/client";
-import { useSources, useSyncSource } from "../api/queries";
+import { useState } from "react";
+import { useFeed, useRotateFeed, useSources, useSyncSource } from "../api/queries";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -34,6 +35,7 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
             <SourceRow key={s.type} source={s} />
           ))}
         </ul>
+        <CalendarFeed />
       </div>
     </div>
   );
@@ -60,7 +62,7 @@ function SourceRow({ source: s }: { source: SourceStatus }) {
         {failing && <span className={styles.error}>{s.lastError}</span>}
         {r && !failing && (
           <span className={styles.meta}>
-            Last sync: {r.created} new, {r.updated} changed, {r.completed} completed
+            Last sync: {r.created} new, {r.updated} changed, {r.completed} completed{r.deleted ? `, ${r.deleted} removed` : ""}
           </span>
         )}
       </div>
@@ -70,5 +72,64 @@ function SourceRow({ source: s }: { source: SourceStatus }) {
         </button>
       )}
     </li>
+  );
+}
+
+/** The iCal export: a private URL calendar apps (Apple Calendar on your devices) can subscribe to. */
+function CalendarFeed() {
+  const feed = useFeed();
+  const rotate = useRotateFeed();
+  const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const url = feed.data ? `${location.origin}${feed.data.path}` : "";
+  const webcal = url.replace(/^https?:/, "webcal:");
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <section className={styles.feed}>
+      <h3>Calendar feed</h3>
+      <p className={styles.hint}>
+        Subscribe to this URL in Apple Calendar (File → New Calendar Subscription, or tap the link on iPhone) to see your events,
+        classes and open deadlines there. Works on devices on your tailnet. Keep it private.
+      </p>
+      {feed.error && <p className={styles.error}>{feed.error.message}</p>}
+      {url && (
+        <>
+          <input id="feed-url" className="input" readOnly value={url} onFocus={(e) => e.target.select()} aria-label="Calendar feed URL" />
+          <div className={styles.feedActions}>
+            <button className="btn" onClick={copy}>
+              {copied ? "Copied" : "Copy URL"}
+            </button>
+            <a className="btn" href={webcal}>
+              Open in Calendar
+            </a>
+            {confirming ? (
+              <>
+                <button className="btn btn-danger" onClick={() => rotate.mutate(undefined, { onSettled: () => setConfirming(false) })}>
+                  Replace URL
+                </button>
+                <button className="btn btn-ghost" onClick={() => setConfirming(false)}>
+                  Keep
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-ghost" onClick={() => setConfirming(true)}>
+                New URL…
+              </button>
+            )}
+          </div>
+          {confirming && <p className={styles.hint}>Existing subscriptions stop updating; subscribe again with the new URL.</p>}
+        </>
+      )}
+    </section>
   );
 }

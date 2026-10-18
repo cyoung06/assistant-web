@@ -36,6 +36,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ical/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ical/feed/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ical/{token}.ics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["calendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/items": {
         parameters: {
             query?: never;
@@ -304,7 +352,7 @@ export interface components {
         CreateSource: {
             ref?: string | null;
             /** @enum {string} */
-            type: "manual" | "plms" | "email" | "upload";
+            type: "manual" | "plms" | "email" | "upload" | "ical";
             url?: string | null;
         };
         CreateTagRequest: {
@@ -325,6 +373,11 @@ export interface components {
             timePlannedMinutes: number;
             /** Format: int64 */
             timeSpentMinutes: number;
+        };
+        FeedInfo: {
+            /** Format: date-time */
+            createdAt: string;
+            path: string;
         };
         ItemPage: {
             items: components["schemas"]["ItemResponse"][];
@@ -440,7 +493,7 @@ export interface components {
         Source: {
             ref?: string | null;
             /** @enum {string} */
-            type: "manual" | "plms" | "email" | "upload";
+            type: "manual" | "plms" | "email" | "upload" | "ical";
             url?: string | null;
         };
         SourceStatus: {
@@ -456,13 +509,15 @@ export interface components {
             lastSyncAt?: string | null;
             syncing: boolean;
             /** @enum {string} */
-            type: "manual" | "plms" | "email" | "upload";
+            type: "manual" | "plms" | "email" | "upload" | "ical";
         };
         SyncReport: {
             /** Format: int32 */
             completed?: number;
             /** Format: int32 */
             created?: number;
+            /** Format: int32 */
+            deleted?: number;
             /** Format: int32 */
             skippedDeleted?: number;
             /** Format: int32 */
@@ -542,6 +597,68 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ChangesPage"];
+                };
+            };
+        };
+    };
+    feed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FeedInfo"];
+                };
+            };
+        };
+    };
+    rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FeedInfo"];
+                };
+            };
+        };
+    };
+    calendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

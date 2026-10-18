@@ -34,7 +34,7 @@ export function useTags() {
  * Tags whose items stay out of the task views (Coming up, week strip, boards, Items): items that
  * just happen at a time, like classes. They still show in the calendar and Today.
  */
-export const TASK_VIEW_HIDDEN_TAGS = ["class"];
+export const TASK_VIEW_HIDDEN_TAGS = ["class", "holiday"];
 
 export function useHiddenTagIds(): string[] {
   const tags = useTags().data ?? [];
@@ -192,6 +192,20 @@ export function useSyncSource() {
       unwrap(await api.POST("/api/v1/sources/{type}/sync", { params: { path: { type } } })),
     onSuccess: () =>
       Promise.all([qc.invalidateQueries({ queryKey: ["sources"] }), qc.invalidateQueries({ queryKey: ["tags"] }), invalidateItems(qc)]),
+  });
+}
+
+// ---- calendar feed (iCal export) -------------------------------------------------
+
+export function useFeed() {
+  return useQuery({ queryKey: ["feed"], queryFn: async () => unwrap(await api.GET("/api/v1/ical/feed")) });
+}
+
+export function useRotateFeed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => unwrap(await api.POST("/api/v1/ical/feed/rotate")),
+    onSuccess: (feed) => qc.setQueryData(["feed"], feed),
   });
 }
 

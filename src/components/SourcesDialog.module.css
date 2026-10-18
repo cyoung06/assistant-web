@@ -86,3 +86,24 @@
   font-size: var(--text-sm);
   color: var(--danger);
 }
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.feed h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.feedActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.feedActions a {
+  text-decoration: none;
+}
