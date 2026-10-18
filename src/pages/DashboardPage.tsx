@@ -3,7 +3,7 @@ import { useCalendar, useItems } from "../api/queries";
 import { EntryRow } from "../components/EntryRow";
 import { ItemRow } from "../components/ItemRow";
 import { addDays, formatDay, parseDate } from "../lib/dates";
-import { groupByDay, isOpen, overdueBefore, today, weekStart, type Day } from "../lib/dashboard";
+import { entryTime, groupByDay, isOpen, overdueBefore, today, weekStart, type Day } from "../lib/dashboard";
 import styles from "./DashboardPage.module.css";
 
 const UPCOMING_DAYS = 6;
@@ -25,8 +25,10 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
   );
   const byDate = new Map(days.map((d) => [d.date, d]));
   const todayInfo = byDate.get(day) ?? { date: day, schedule: [], deadlines: [] };
-  const upcoming = days.filter((d) => d.date > day);
-  const week = days.filter((d) => d.date < addDays(from, 7));
+  // Repeating events (classes) are routine: they show in Today, but not in Coming up or the week strip.
+  const oneOff = (d: Day): Day => ({ ...d, schedule: d.schedule.filter((e) => !e.seriesId), deadlines: d.deadlines.filter((e) => !e.seriesId) });
+  const upcoming = days.filter((d) => d.date > day).map(oneOff);
+  const week = days.filter((d) => d.date < addDays(from, 7)).map(oneOff);
   const now = new Date();
 
   const overdueItems = overdueBefore(overdue.data?.items ?? [], day);
@@ -83,7 +85,7 @@ export function DashboardPage({ onOpenCalendar }: { onOpenCalendar: () => void }
               d.schedule.length + d.deadlines.length === 0 ? null : (
                 <div key={d.date} className={styles.day}>
                   <h3>{d.date === addDays(day, 1) ? `Tomorrow · ${formatDay(d.date)}` : formatDay(d.date)}</h3>
-                  {[...d.deadlines, ...d.schedule].map((e) => (
+                  {[...d.deadlines, ...d.schedule].sort((a, b) => entryTime(a) - entryTime(b)).map((e) => (
                     <EntryRow key={`${e.itemId}:${e.kind}`} entry={e} />
                   ))}
                 </div>

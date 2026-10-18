@@ -23,6 +23,7 @@ const COLUMNS: { field: SortField | null; label: string; className?: string }[] 
 export function ItemsPage() {
   const [status, setStatus] = useState<Status>("open");
   const [topLevel, setTopLevel] = useState(true);
+  const [showRepeating, setShowRepeating] = useState(false);
   const [tag, setTag] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ field: SortField; asc: boolean }>({ field: "next", asc: true });
@@ -32,6 +33,7 @@ export function ItemsPage() {
   const filter: ItemFilter = {
     done: status === "all" ? undefined : status === "done",
     topLevel: topLevel || undefined,
+    repeating: showRepeating ? undefined : false,
     tag: tag || undefined,
     q: query.trim() || undefined,
   };
@@ -55,6 +57,10 @@ export function ItemsPage() {
         <label className={styles.check}>
           <input id="items-top-level" className="checkbox" type="checkbox" checked={topLevel} onChange={(e) => setTopLevel(e.target.checked)} />
           Top level only
+        </label>
+        <label className={styles.check}>
+          <input id="items-repeating" className="checkbox" type="checkbox" checked={showRepeating} onChange={(e) => setShowRepeating(e.target.checked)} />
+          Repeating events
         </label>
         <select id="items-tag" className="input" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Tag">
           <option value="">All tags</option>

@@ -72,6 +72,18 @@
   overflow: hidden;
   line-height: 1.25;
 }
+/* In the time grid, time on its own line so titles get the full width. */
+.fc-timegrid-event .entry {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.fc-timegrid-event .entry-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 .entry-time {
   flex: none;
   font-size: var(--text-xs);

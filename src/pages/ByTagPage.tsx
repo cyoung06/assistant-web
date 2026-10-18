@@ -10,7 +10,7 @@ import styles from "./ByTagPage.module.css";
 export function ByTagPage() {
   const [showDone, setShowDone] = useState(false);
   const tags = useTags().data ?? [];
-  const items = useItems({ done: showDone ? undefined : false, topLevel: true });
+  const items = useItems({ done: showDone ? undefined : false, topLevel: true, repeating: false });
   const all = sortItems(items.data?.items ?? [], "next", true);
 
   const columns = [

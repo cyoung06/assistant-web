@@ -555,6 +555,7 @@ export interface operations {
                 done?: boolean;
                 scheduled?: boolean;
                 overdue?: boolean;
+                repeating?: boolean;
                 q?: string;
                 cursor?: string;
                 limit?: number;

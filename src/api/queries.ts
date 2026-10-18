@@ -58,6 +58,8 @@ export interface ItemFilter {
   scheduled?: boolean;
   overdue?: boolean;
   topLevel?: boolean;
+  /** False leaves out occurrences of repeating events (classes etc.). */
+  repeating?: boolean;
   q?: string;
 }
 

@@ -112,6 +112,9 @@ export function CalendarPage() {
           droppable
           selectMirror
           scrollTime="08:00:00"
+          slotMinTime="06:00:00"
+          // Overlapping items sit side by side instead of covering each other.
+          slotEventOverlap={false}
           slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
           eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
           dayMaxEvents
@@ -146,7 +149,7 @@ function renderEntry(arg: EventContentArg) {
 /** Open, unscheduled top-level items, draggable onto the calendar. */
 function ToSchedule() {
   const ref = useRef<HTMLDivElement>(null);
-  const items = useItems({ done: false, topLevel: true });
+  const items = useItems({ done: false, topLevel: true, repeating: false });
   const unscheduled = (items.data?.items ?? []).filter((i) => !i.at);
 
   useEffect(() => {

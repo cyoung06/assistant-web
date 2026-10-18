@@ -6,7 +6,7 @@ import { usePanel } from "./panel";
 import { TagDot } from "./TagPicker";
 import styles from "./QuickAdd.module.css";
 
-const NEW_TAG_COLORS = ["#2F5BE0", "#E0642F", "#1F8A4C", "#A23FD1", "#D13B6E", "#0E8C9C", "#B88A00"];
+const NEW_TAG_COLORS = ["#2F5BE0", "#E0642F", "#1F8A4C", "#A23FD1", "#D13B6E", "#0E8C9C", "#B88A00", "#7A5230", "#5B6CFF", "#C2410C", "#4D7C0F", "#BE185D"];
 
 /** Free-text capture: the API's LLM turns it into an item, shown for confirmation before saving. */
 export function QuickAdd() {
@@ -57,7 +57,9 @@ export function QuickAdd() {
   };
 
   const createTag = async (name: string) => {
-    const color = NEW_TAG_COLORS[tags.length % NEW_TAG_COLORS.length]!;
+    // The palette color fewest tags already use, so new tags don't repeat existing colors.
+    const used = (c: string) => tags.filter((t) => t.color.toUpperCase() === c).length;
+    const color = [...NEW_TAG_COLORS].sort((a, b) => used(a) - used(b))[0]!;
     const tag = await tagMutations.create.mutateAsync({ name, color });
     setResult((r) =>
       r && {
