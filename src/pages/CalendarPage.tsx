@@ -139,8 +139,12 @@ function renderEntry(arg: EventContentArg) {
   return (
     <div className="entry" title={isDeadline ? `Due: ${arg.event.title}` : arg.event.title}>
       {isDeadline && <span className="entry-flag">Due</span>}
-      {entry.seriesId && <span className="entry-repeat" title="Repeats">↻</span>}
-      {time && <span className="entry-time">{time}</span>}
+      {(entry.seriesId || time) && (
+        <span className="entry-time">
+          {entry.seriesId && <span className="entry-repeat" title="Repeats">↻ </span>}
+          {time}
+        </span>
+      )}
       <span className="entry-title">{arg.event.title}</span>
     </div>
   );
