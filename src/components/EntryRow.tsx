@@ -42,6 +42,7 @@ export function EntryRow({ entry, past }: { entry: CalendarEntry; past?: boolean
         <span className={styles.title}>{entry.title || "Untitled"}</span>
         {deadline && <span className={`${styles.badge} ${entry.overdue ? styles.badgeLate : ""}`}>Due</span>}
         {entry.session && <span className={styles.session}>work</span>}
+        {entry.seriesId && !entry.session && <span className={styles.session} title="Repeats">↻</span>}
       </button>
     </div>
   );

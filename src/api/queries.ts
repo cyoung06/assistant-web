@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { api, unwrap, type CreateItem, type Item, type ItemPatch } from "./client";
+import type { RepeatRule } from "../lib/repeat";
+import { api, unwrap, type CreateItem, type Item, type ItemPatch, type Scope } from "./client";
 
 export const keys = {
   tags: ["tags"] as const,
@@ -106,10 +107,14 @@ export function useItemMutations() {
       onSuccess: done,
     }),
     patch: useMutation({
-      mutationFn: async ({ id, patch, version }: { id: string; patch: ItemPatch; version?: number }) =>
+      mutationFn: async ({ id, patch, version, scope }: { id: string; patch: ItemPatch; version?: number; scope?: Scope }) =>
         unwrap(
           await api.PATCH("/api/v1/items/{id}", {
-            params: { path: { id }, header: version === undefined ? undefined : { "If-Match": `"${version}"` } },
+            params: {
+              path: { id },
+              query: scope ? { scope } : undefined,
+              header: version === undefined ? undefined : { "If-Match": `"${version}"` },
+            },
             body: patch as never,
           }),
         ),
@@ -121,7 +126,13 @@ export function useItemMutations() {
       onError: done,
     }),
     remove: useMutation({
-      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/items/{id}", { params: { path: { id } } })),
+      mutationFn: async ({ id, scope }: { id: string; scope?: Scope }) =>
+        unwrap(await api.DELETE("/api/v1/items/{id}", { params: { path: { id }, query: scope ? { scope } : undefined } })),
+      onSuccess: done,
+    }),
+    repeat: useMutation({
+      mutationFn: async ({ id, rule }: { id: string; rule: RepeatRule }) =>
+        unwrap(await api.POST("/api/v1/items/{id}/repeat", { params: { path: { id } }, body: rule })),
       onSuccess: done,
     }),
     restore: useMutation({
@@ -130,6 +141,25 @@ export function useItemMutations() {
       onSuccess: done,
     }),
   };
+}
+
+// ---- series --------------------------------------------------------------------
+
+export function useSeries(id: string | null) {
+  return useQuery({
+    queryKey: ["series", id ?? ""],
+    queryFn: async () => unwrap(await api.GET("/api/v1/series/{id}", { params: { path: { id: id! } } })),
+    enabled: id !== null,
+  });
+}
+
+export function useChangeRepeat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, rule }: { id: string; rule: RepeatRule }) =>
+      unwrap(await api.PUT("/api/v1/series/{id}/repeat", { params: { path: { id } }, body: rule })),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["series"] }), invalidateItems(qc)]),
+  });
 }
 
 // ---- sources -------------------------------------------------------------------

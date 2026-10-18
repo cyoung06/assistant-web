@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { ApiError, type CreateItem, type Item, type ItemPatch } from "../api/client";
-import { useDescendants, useItem, useItemMutations, useTags } from "../api/queries";
-import { formatDuration } from "../lib/dates";
+import { ApiError, type At, type CreateItem, type Item, type ItemPatch } from "../api/client";
+import { useChangeRepeat, useDescendants, useItem, useItemMutations, useSeries, useTags } from "../api/queries";
+import { formatDuration, toDateString } from "../lib/dates";
+import { describeRepeat, touchesSeries, type RepeatRule } from "../lib/repeat";
+import { RepeatEditor } from "./RepeatEditor";
+import { useAskScope } from "./ScopePrompt";
 import { ItemForm, type ItemValues } from "./ItemForm";
 import { ItemRow } from "./ItemRow";
 import { usePanel, type PanelTarget } from "./panel";
@@ -25,6 +28,12 @@ export function ItemPanel({ target }: { target: PanelTarget }) {
       {target.kind === "item" ? <ExistingItem id={target.id} /> : <NewItem key={JSON.stringify(target.draft)} draft={target.draft} />}
     </aside>
   );
+}
+
+/** The local date an event starts on, or null for items without a scheduled time. */
+function atDate(at: At | null | undefined): string | null {
+  if (!at) return null;
+  return at.allDay ? at.startDate! : toDateString(new Date(at.start!));
 }
 
 function toValues(src: CreateItem | Item): ItemValues {
@@ -58,6 +67,12 @@ function NewItem({ draft }: { draft: CreateItem }) {
         autoFocusTitle
         onChange={(patch) => setValues((v) => ({ ...v, ...(patch as Partial<CreateItem>) }))}
       />
+      {atDate(values.at) && !values.by && !values.parentId && (
+        <section className={styles.repeat}>
+          <span className="label">Repeat</span>
+          <RepeatEditor value={values.repeat ?? null} startDate={atDate(values.at)!} onChange={(repeat) => setValues((v) => ({ ...v, repeat }))} />
+        </section>
+      )}
       {create.error && <p className={styles.error}>{create.error.message}</p>}
       <div className={styles.actions}>
         <button className="btn btn-primary" onClick={save} disabled={create.isPending}>
@@ -74,23 +89,28 @@ function ExistingItem({ id }: { id: string }) {
   const descendants = useDescendants(id);
   const tags = useTags().data ?? [];
   const { patch, create, remove, restore } = useItemMutations();
-  const [deleted, setDeleted] = useState(false);
+  const askScope = useAskScope();
+  const [deleted, setDeleted] = useState<"undoable" | "series" | null>(null);
   const [newChild, setNewChild] = useState("");
+  // Bumped to reset the form when a change is cancelled at the scope prompt.
+  const [formKey, setFormKey] = useState(0);
 
   if (deleted) {
     return (
       <div className={styles.body}>
-        <p>Item deleted, including its sub-items.</p>
+        <p>{deleted === "series" ? "Repeating events deleted." : "Item deleted, including its sub-items."}</p>
         <div className={styles.actions}>
-          <button
-            className="btn"
-            onClick={async () => {
-              await restore.mutateAsync(id);
-              setDeleted(false);
-            }}
-          >
-            Undo
-          </button>
+          {deleted === "undoable" && (
+            <button
+              className="btn"
+              onClick={async () => {
+                await restore.mutateAsync(id);
+                setDeleted(null);
+              }}
+            >
+              Undo
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={close}>
             Close
           </button>
@@ -103,7 +123,17 @@ function ExistingItem({ id }: { id: string }) {
   if (item.error) return <div className={styles.body}>{item.error.message}</div>;
   const current = item.data;
 
-  const save = (change: ItemPatch) => patch.mutate({ id, patch: change, version: current.version });
+  const save = async (change: ItemPatch) => {
+    let scope: "this" | "following" | "all" | undefined;
+    if (current.series && touchesSeries(change)) {
+      // Moving an occurrence to another day can only apply to that occurrence.
+      const sameDay = !("at" in change) || atDate(change.at) === current.series.occurrenceDate;
+      const answer = await askScope({ action: "edit", seriesWide: sameDay });
+      if (!answer) return setFormKey((k) => k + 1);
+      scope = answer;
+    }
+    patch.mutate({ id, patch: change, version: current.version, scope });
+  };
   const conflict = patch.error instanceof ApiError && patch.error.status === 412;
 
   const addChild = async () => {
@@ -147,7 +177,9 @@ function ExistingItem({ id }: { id: string }) {
         </button>
       )}
 
-      <ItemForm key={current.id} value={toValues(current)} tags={tags} onChange={save} />
+      <ItemForm key={`${current.id}:${formKey}`} value={toValues(current)} tags={tags} onChange={save} />
+
+      <RepeatSection item={current} />
 
       {current.source.url && (
         <a className={styles.source} href={current.source.url} target="_blank" rel="noreferrer">
@@ -185,13 +217,75 @@ function ExistingItem({ id }: { id: string }) {
         <button
           className="btn btn-danger"
           onClick={async () => {
-            await remove.mutateAsync(id);
-            setDeleted(true);
+            if (current.series) {
+              const scope = await askScope({ action: "delete", seriesWide: true });
+              if (!scope) return;
+              await remove.mutateAsync({ id, scope });
+              setDeleted(scope === "this" ? "undoable" : "series");
+            } else {
+              await remove.mutateAsync({ id });
+              setDeleted("undoable");
+            }
           }}
         >
           Delete
         </button>
       </div>
     </div>
+  );
+}
+
+/** How the item repeats, with a way to start or change it. Only events (no deadline, not a sub-item) repeat. */
+function RepeatSection({ item }: { item: Item }) {
+  const series = useSeries(item.series?.id ?? null);
+  const { repeat } = useItemMutations();
+  const changeRepeat = useChangeRepeat();
+  const [draft, setDraft] = useState<RepeatRule | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const start = item.series ? series.data?.startDate : atDate(item.at);
+  if (!start || (!item.series && (item.by || item.parentId))) return null;
+
+  const current = series.data?.repeat ?? null;
+  const save = async () => {
+    if (!draft) return;
+    if (item.series) await changeRepeat.mutateAsync({ id: item.series.id, rule: draft });
+    else await repeat.mutateAsync({ id: item.id, rule: draft });
+    setEditing(false);
+  };
+  const error = repeat.error ?? changeRepeat.error;
+
+  return (
+    <section className={styles.repeat}>
+      <span className="label">Repeat</span>
+      {!editing ? (
+        <div className={styles.repeatSummary}>
+          <span>{current ? `↻ ${describeRepeat(current, start)}` : "Doesn't repeat"}</span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setDraft(current ?? { freq: "weekly", interval: 1, weekdays: [], until: null, count: null });
+              setEditing(true);
+            }}
+          >
+            {current ? "Change" : "Repeat…"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <RepeatEditor value={draft} startDate={start} onChange={setDraft} />
+          {item.series && <p className={styles.hint}>Applies to the whole series. Changed or done occurrences are kept.</p>}
+          <div className={styles.actions}>
+            <button className="btn btn-ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" disabled={!draft || repeat.isPending || changeRepeat.isPending} onClick={save}>
+              {item.series ? "Save repeat" : "Start repeating"}
+            </button>
+          </div>
+        </>
+      )}
+      {error && <p className={styles.error}>{error.message}</p>}
+    </section>
   );
 }

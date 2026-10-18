@@ -99,3 +99,23 @@
   gap: 8px;
   justify-content: flex-end;
 }
+
+.repeat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repeatSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-sm);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}

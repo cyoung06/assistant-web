@@ -10,6 +10,8 @@ export type CalendarEntry = Schemas["CalendarEntry"];
 export type CreateItem = Schemas["CreateItemRequest"];
 export type QuickAddResult = Schemas["QuickAddResult"];
 export type SourceStatus = Schemas["SourceStatus"];
+/** Which occurrences of a repeating event an edit or delete applies to. */
+export type Scope = "this" | "following" | "all";
 
 /** JSON merge patch for an item: absent fields stay, null clears. */
 export type ItemPatch = Partial<{

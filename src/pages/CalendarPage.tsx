@@ -5,7 +5,8 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import type { DateSelectArg, EventContentArg, EventDropArg } from "@fullcalendar/core";
 import type { EventResizeDoneArg, DropArg } from "@fullcalendar/interaction";
-import type { CalendarEntry } from "../api/client";
+import type { CalendarEntry, Scope } from "../api/client";
+import { useAskScope } from "../components/ScopePrompt";
 import { useCalendar, useItemMutations, useItems, useTags } from "../api/queries";
 import { usePanel } from "../components/panel";
 import { TagDot } from "../components/TagPicker";
@@ -27,12 +28,21 @@ export function CalendarPage() {
 
   const { openItem, openDraft } = usePanel();
   const { patch, create } = useItemMutations();
+  const askScope = useAskScope();
 
   const onMove = async (info: EventDropArg | EventResizeDoneArg) => {
     const entry = info.event.extendedProps.entry as CalendarEntry;
     const placement = { start: info.event.start!, end: info.event.end, allDay: info.event.allDay };
+    let scope: Scope | undefined;
+    if (entry.seriesId) {
+      // Moving to another day can only apply to this occurrence.
+      const sameDay = toDateString(info.oldEvent.start!) === toDateString(placement.start);
+      const answer = await askScope({ action: "edit", seriesWide: sameDay });
+      if (!answer) return info.revert();
+      scope = answer;
+    }
     try {
-      await patch.mutateAsync({ id: entry.itemId, patch: patchForPlacement(entry, placement) });
+      await patch.mutateAsync({ id: entry.itemId, patch: patchForPlacement(entry, placement), scope });
     } catch {
       info.revert();
     }
@@ -126,6 +136,7 @@ function renderEntry(arg: EventContentArg) {
   return (
     <div className="entry" title={isDeadline ? `Due: ${arg.event.title}` : arg.event.title}>
       {isDeadline && <span className="entry-flag">Due</span>}
+      {entry.seriesId && <span className="entry-repeat" title="Repeats">↻</span>}
       {time && <span className="entry-time">{time}</span>}
       <span className="entry-title">{arg.event.title}</span>
     </div>

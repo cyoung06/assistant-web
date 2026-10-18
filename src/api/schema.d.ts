@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/items/{id}/repeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["repeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/items/{id}/restore": {
         parameters: {
             query?: never;
@@ -110,6 +126,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["parse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/series/{id}/repeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["changeRule"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -219,6 +267,8 @@ export interface components {
             overdue: boolean;
             /** Format: uuid */
             parentId?: string | null;
+            /** Format: uuid */
+            seriesId?: string | null;
             session: boolean;
             /** Format: date-time */
             start?: string | null;
@@ -231,6 +281,7 @@ export interface components {
             cursor: number;
             hasMore: boolean;
             items: components["schemas"]["ItemResponse"][];
+            series: components["schemas"]["SeriesResponse"][];
             tags: components["schemas"]["TagResponse"][];
         };
         CreateItemRequest: {
@@ -245,6 +296,7 @@ export interface components {
             notes?: string;
             /** Format: uuid */
             parentId?: string | null;
+            repeat?: components["schemas"]["RepeatRule"] | null;
             source?: components["schemas"]["CreateSource"] | null;
             tagIds?: string[];
             title?: string;
@@ -295,6 +347,7 @@ export interface components {
             notes: string;
             /** Format: uuid */
             parentId?: string | null;
+            series?: components["schemas"]["SeriesRef"] | null;
             source: components["schemas"]["Source"];
             tagIds: string[];
             title: string;
@@ -338,6 +391,51 @@ export interface components {
             draft: components["schemas"]["CreateItemRequest"];
             parsed: boolean;
             unknownTags: string[];
+        };
+        RepeatRule: {
+            /** Format: int32 */
+            count?: number | null;
+            /** @enum {string} */
+            freq: "daily" | "weekly" | "monthly";
+            /** Format: int32 */
+            interval?: number;
+            /** Format: date */
+            until?: string | null;
+            weekdays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
+        };
+        SeriesRef: {
+            detached: boolean;
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            occurrenceDate: string;
+        };
+        SeriesResponse: {
+            allDay: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deletedAt?: string | null;
+            /** Format: int32 */
+            durationMinutes?: number | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            mainTagId?: string | null;
+            notes: string;
+            repeat: components["schemas"]["RepeatRule"];
+            /** Format: int32 */
+            spanDays?: number | null;
+            /** Format: date */
+            startDate: string;
+            /** Format: time-local */
+            startTime?: string | null;
+            tagIds: string[];
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
         };
         Source: {
             ref?: string | null;
@@ -526,7 +624,9 @@ export interface operations {
     };
     delete_1: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: string;
+            };
             header?: {
                 "If-Match"?: string;
             };
@@ -548,7 +648,9 @@ export interface operations {
     };
     update_1: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: string;
+            };
             header?: {
                 "If-Match"?: string;
             };
@@ -597,6 +699,32 @@ export interface operations {
             };
         };
     };
+    repeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepeatRule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ItemResponse"];
+                };
+            };
+        };
+    };
     restore: {
         parameters: {
             query?: never;
@@ -639,6 +767,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["QuickAddResult"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeriesResponse"];
+                };
+            };
+        };
+    };
+    changeRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepeatRule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeriesResponse"];
                 };
             };
         };

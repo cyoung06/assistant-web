@@ -1,0 +1,47 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.line > :global(.input) {
+  flex: 1 1 140px;
+}
+
+.every {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+.every :global(.input) {
+  width: 64px;
+}
+
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.days button {
+  min-width: 42px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  color: var(--text-2);
+}
+.days .on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}

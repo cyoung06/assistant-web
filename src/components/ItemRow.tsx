@@ -39,7 +39,10 @@ export function ItemRow({ item, compact }: { item: Item; compact?: boolean }) {
       />
       <button className={styles.main} onClick={() => openItem(item.id)}>
         <TagDot color={item.derived.color} />
-        <span className={styles.title}>{item.derived.displayTitle || "Untitled"}</span>
+        <span className={styles.title}>
+          {item.series && <span title="Repeats">↻ </span>}
+          {item.derived.displayTitle || "Untitled"}
+        </span>
         <span className={styles.meta}>
           {whenLabel(item).map((label) => (
             <span key={label}>{label}</span>
