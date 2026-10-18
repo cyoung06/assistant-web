@@ -808,7 +808,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MoveReport"];
+                    "application/json": components["schemas"]["MoveReport"];
                 };
             };
         };
@@ -835,7 +835,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["AttachmentInfo"];
+                    "application/json": components["schemas"]["AttachmentInfo"];
                 };
             };
         };
@@ -857,7 +857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": string;
+                    "application/json": string;
                 };
             };
         };
@@ -897,7 +897,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CalendarResponse"][];
+                    "application/json": components["schemas"]["CalendarResponse"][];
                 };
             };
         };
@@ -923,7 +923,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CalendarResponse"];
+                    "application/json": components["schemas"]["CalendarResponse"];
                 };
             };
         };
@@ -947,7 +947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["AnalyzeResponse"];
+                    "application/json": components["schemas"]["AnalyzeResponse"];
                 };
             };
         };
@@ -970,7 +970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EventOccurrence"][];
+                    "application/json": components["schemas"]["EventOccurrence"][];
                 };
             };
         };
@@ -994,7 +994,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EventResponse"];
+                    "application/json": components["schemas"]["EventResponse"];
                 };
             };
         };
@@ -1016,7 +1016,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EventResponse"];
+                    "application/json": components["schemas"]["EventResponse"];
                 };
             };
         };
@@ -1063,7 +1063,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EventResponse"];
+                    "application/json": components["schemas"]["EventResponse"];
                 };
             };
         };
@@ -1083,7 +1083,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["FeedInfo"];
+                    "application/json": components["schemas"]["FeedInfo"];
                 };
             };
         };
@@ -1103,7 +1103,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["FeedInfo"];
+                    "application/json": components["schemas"]["FeedInfo"];
                 };
             };
         };
@@ -1125,7 +1125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": string;
+                    "application/json": string;
                 };
             };
         };
@@ -1145,7 +1145,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["LabelResponse"][];
+                    "application/json": components["schemas"]["LabelResponse"][];
                 };
             };
         };
@@ -1169,7 +1169,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["LabelResponse"];
+                    "application/json": components["schemas"]["LabelResponse"];
                 };
             };
         };
@@ -1215,7 +1215,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["LabelResponse"];
+                    "application/json": components["schemas"]["LabelResponse"];
                 };
             };
         };
@@ -1235,7 +1235,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MailAccountStatus"];
+                    "application/json": components["schemas"]["MailAccountStatus"];
                 };
             };
         };
@@ -1273,7 +1273,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MailAccountStatus"];
+                    "application/json": components["schemas"]["MailAccountStatus"];
                 };
             };
         };
@@ -1295,7 +1295,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MailMessage"];
+                    "application/json": components["schemas"]["MailMessage"];
                 };
             };
         };
@@ -1315,7 +1315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ProjectResponse"][];
+                    "application/json": components["schemas"]["ProjectResponse"][];
                 };
             };
         };
@@ -1339,7 +1339,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ProjectResponse"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };
@@ -1361,7 +1361,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ProjectResponse"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };
@@ -1407,7 +1407,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ProjectResponse"];
+                    "application/json": components["schemas"]["ProjectResponse"];
                 };
             };
         };
@@ -1430,7 +1430,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["Ref"][];
+                    "application/json": components["schemas"]["Ref"][];
                 };
             };
         };
@@ -1452,7 +1452,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["Ref"][];
+                    "application/json": components["schemas"]["Ref"][];
                 };
             };
         };
@@ -1472,7 +1472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": {
+                    "application/json": {
                         [key: string]: number;
                     };
                 };
@@ -1496,7 +1496,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["Ref"];
+                    "application/json": components["schemas"]["Ref"];
                 };
             };
         };
@@ -1516,7 +1516,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SourceStatus"][];
+                    "application/json": components["schemas"]["SourceStatus"][];
                 };
             };
         };
@@ -1538,7 +1538,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SourceStatus"];
+                    "application/json": components["schemas"]["SourceStatus"];
                 };
             };
         };
@@ -1566,7 +1566,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"][];
+                    "application/json": components["schemas"]["TaskResponse"][];
                 };
             };
         };
@@ -1590,7 +1590,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"];
+                    "application/json": components["schemas"]["TaskResponse"];
                 };
             };
         };
@@ -1612,7 +1612,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"];
+                    "application/json": components["schemas"]["TaskResponse"];
                 };
             };
         };
@@ -1661,7 +1661,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"];
+                    "application/json": components["schemas"]["TaskResponse"];
                 };
             };
         };
@@ -1687,7 +1687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"];
+                    "application/json": components["schemas"]["TaskResponse"];
                 };
             };
         };
@@ -1710,7 +1710,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TaskResponse"];
+                    "application/json": components["schemas"]["TaskResponse"];
                 };
             };
         };
