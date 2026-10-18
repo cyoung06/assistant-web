@@ -59,3 +59,21 @@ export function useMailMutations() {
     }),
   };
 }
+
+// ---- tokens for the Outlook add-in (the public endpoints) ----------------------------
+
+export function usePublicTokens() {
+  return useQuery({ queryKey: ["public-tokens"], queryFn: async () => unwrap(await api.GET("/api/v1/public-tokens")) });
+}
+
+export function usePublicTokenMutations() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["public-tokens"] });
+  return {
+    create: useMutation({ mutationFn: async (name: string) => unwrap(await api.POST("/api/v1/public-tokens", { body: { name } })), onSettled: done }),
+    revoke: useMutation({
+      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/public-tokens/{id}", { params: { path: { id } } })),
+      onSettled: done,
+    }),
+  };
+}

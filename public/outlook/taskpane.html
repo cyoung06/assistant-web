@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assistant</title>
+  <!-- Office.js must come from Microsoft's CDN. -->
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="taskpane.css" />
+</head>
+<body>
+  <main id="app">
+    <p class="muted" id="loading">Loading…</p>
+
+    <section id="setup" hidden>
+      <h1>Connect to Assistant</h1>
+      <p class="muted">Create a token in Assistant (Sources → Outlook add-in) and paste it here. It stays with your Outlook account.</p>
+      <input id="token" type="password" placeholder="ast_…" autocomplete="off" />
+      <button id="saveToken" class="primary">Connect</button>
+      <p class="error" id="setupError"></p>
+    </section>
+
+    <section id="mail" hidden>
+      <div class="tabs">
+        <button id="tabTask" class="on">Reply later</button>
+        <button id="tabAnalyze">Analyze</button>
+      </div>
+
+      <div id="taskForm">
+        <label>Title<input id="title" /></label>
+        <div class="row" id="dueChoices"></div>
+        <label>Project<select id="project"><option value="">No project</option></select></label>
+        <label class="check"><input type="checkbox" id="reply" checked /> Label “reply”</label>
+        <button id="add" class="primary">Add to Assistant</button>
+      </div>
+
+      <div id="analyzeForm" hidden>
+        <p class="muted">The model reads this mail and proposes tasks and events. Nothing is added until you choose.</p>
+        <button id="analyze" class="primary">Analyze this mail</button>
+        <div id="proposals"></div>
+        <button id="createPicked" class="primary" hidden>Add selected</button>
+      </div>
+
+      <p class="error" id="error"></p>
+      <p class="done" id="done" hidden></p>
+      <p class="footer"><a href="#" id="forget">Disconnect</a></p>
+    </section>
+  </main>
+  <script src="taskpane.js"></script>
+</body>
+</html>

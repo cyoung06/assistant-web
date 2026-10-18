@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Assistant add-in for Outlook (web, Mac, Windows, iOS, Android): a side panel on a mail that
+     adds it to Assistant as a task, or has the model read it. It only reads the open mail. -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+  <Id>6f6bb3c1-2b0e-4a3c-9f1e-7d8a4f2a9c11</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>syeyoung</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Assistant" />
+  <Description DefaultValue="Add a mail to Assistant as a task (reply later), or have the model read it for deadlines and events." />
+  <IconUrl DefaultValue="https://assistant.syeyoung.dev/outlook/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://assistant.syeyoung.dev/outlook/icon-128.png" />
+  <SupportUrl DefaultValue="https://assistant.syeyoung.dev/outlook/taskpane.html" />
+  <AppDomains>
+    <AppDomain>https://assistant.syeyoung.dev</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.5" />
+    </Sets>
+  </Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://assistant.syeyoung.dev/outlook/taskpane.html" />
+        <RequestedHeight>300</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  <Permissions>ReadItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read" />
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.5">
+          <bt:Set Name="Mailbox" />
+        </bt:Sets>
+      </Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <ExtensionPoint xsi:type="MessageReadCommandSurface">
+              <OfficeTab id="TabDefault">
+                <Group id="assistantGroup">
+                  <Label resid="groupLabel" />
+                  <Control xsi:type="Button" id="assistantOpen">
+                    <Label resid="buttonLabel" />
+                    <Supertip>
+                      <Title resid="buttonLabel" />
+                      <Description resid="buttonTip" />
+                    </Supertip>
+                    <Icon>
+                      <bt:Image size="16" resid="icon16" />
+                      <bt:Image size="32" resid="icon32" />
+                      <bt:Image size="80" resid="icon80" />
+                    </Icon>
+                    <Action xsi:type="ShowTaskpane">
+                      <SourceLocation resid="taskpaneUrl" />
+                    </Action>
+                  </Control>
+                </Group>
+              </OfficeTab>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+          <MobileFormFactor>
+            <ExtensionPoint xsi:type="MobileMessageReadCommandSurface">
+              <Group id="assistantMobileGroup">
+                <Label resid="groupLabel" />
+                <Control xsi:type="MobileButton" id="assistantMobileOpen">
+                  <Label resid="buttonLabel" />
+                  <Icon xsi:type="bt:MobileIconList">
+                    <bt:Image size="25" scale="1" resid="icon25" />
+                    <bt:Image size="25" scale="2" resid="icon50" />
+                    <bt:Image size="25" scale="3" resid="icon75" />
+                    <bt:Image size="32" scale="1" resid="icon32" />
+                    <bt:Image size="32" scale="2" resid="icon64" />
+                    <bt:Image size="32" scale="3" resid="icon96" />
+                    <bt:Image size="48" scale="1" resid="icon48" />
+                    <bt:Image size="48" scale="2" resid="icon96" />
+                    <bt:Image size="48" scale="3" resid="icon144" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="taskpaneUrl" />
+                  </Action>
+                </Control>
+              </Group>
+            </ExtensionPoint>
+          </MobileFormFactor>
+        </Host>
+      </Hosts>
+      <Resources>
+        <bt:Images>
+          <bt:Image id="icon16" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-16.png" />
+          <bt:Image id="icon25" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-25.png" />
+          <bt:Image id="icon32" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-32.png" />
+          <bt:Image id="icon48" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-48.png" />
+          <bt:Image id="icon50" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-50.png" />
+          <bt:Image id="icon64" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-64.png" />
+          <bt:Image id="icon75" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-75.png" />
+          <bt:Image id="icon80" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-80.png" />
+          <bt:Image id="icon96" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-96.png" />
+          <bt:Image id="icon144" DefaultValue="https://assistant.syeyoung.dev/outlook/icon-144.png" />
+        </bt:Images>
+        <bt:Urls>
+          <bt:Url id="taskpaneUrl" DefaultValue="https://assistant.syeyoung.dev/outlook/taskpane.html" />
+        </bt:Urls>
+        <bt:ShortStrings>
+          <bt:String id="groupLabel" DefaultValue="Assistant" />
+          <bt:String id="buttonLabel" DefaultValue="Add to Assistant" />
+        </bt:ShortStrings>
+        <bt:LongStrings>
+          <bt:String id="buttonTip" DefaultValue="Add this mail to Assistant as a task, or have the model read it." />
+        </bt:LongStrings>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>

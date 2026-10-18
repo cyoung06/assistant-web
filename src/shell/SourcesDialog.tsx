@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../api/client";
 import { useEffect, useRef, useState } from "react";
-import { useFeed, useMailAccount, useMailMutations, useRotateFeed, useSources, useSyncSource } from "../api/sources";
+import { useFeed, useMailAccount, useMailMutations, usePublicTokenMutations, usePublicTokens, useRotateFeed, useSources, useSyncSource } from "../api/sources";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -36,6 +36,7 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
         <CalendarFeed />
+        <OutlookAddin />
       </div>
     </div>
   );
@@ -148,6 +149,53 @@ function MailAccount({ onConnected }: { onConnected: () => void }) {
         </>
       )}
     </div>
+  );
+}
+
+const MANIFEST = "https://assistant.syeyoung.dev/outlook/manifest.xml";
+
+/**
+ * The Outlook add-in: install it from its manifest, then paste a token (made here) into it. The
+ * add-in reaches only Assistant's few public endpoints, with that token.
+ */
+function OutlookAddin() {
+  const tokens = usePublicTokens();
+  const { create, revoke } = usePublicTokenMutations();
+  const [created, setCreated] = useState<string | null>(null);
+
+  return (
+    <section className={styles.feed}>
+      <h3>Outlook add-in</h3>
+      <p className={styles.hint}>
+        Adds an “Add to Assistant” button to mails in Outlook (web, Mac, phone): reply later, or have the model read the mail. In Outlook: Get
+        Add-ins → My add-ins → Add a custom add-in → From URL, with <code>{MANIFEST}</code>. Then paste a token from here into the add-in.
+      </p>
+      {created ? (
+        <div className={styles.feedActions}>
+          <input id="addin-token" className="input" readOnly value={created} onFocus={(e) => e.target.select()} aria-label="New token" />
+          <button className="btn" onClick={() => navigator.clipboard?.writeText(created)}>
+            Copy
+          </button>
+        </div>
+      ) : (
+        <div>
+          <button className="btn" disabled={create.isPending} onClick={() => create.mutate("Outlook add-in", { onSuccess: (t) => setCreated(t.token) })}>
+            Create token
+          </button>
+        </div>
+      )}
+      {created && <p className={styles.hint}>Shown only now. Paste it into the add-in.</p>}
+      {(tokens.data ?? []).map((t) => (
+        <div key={t.id} className={styles.feedActions}>
+          <span className={styles.meta}>
+            {t.name} · made {new Date(t.createdAt).toLocaleDateString()} · {t.lastUsed ? `used ${ago(t.lastUsed)}` : "not used yet"}
+          </span>
+          <button className="btn btn-ghost" onClick={() => revoke.mutate(t.id)}>
+            Revoke
+          </button>
+        </div>
+      ))}
+    </section>
   );
 }
 
