@@ -17,6 +17,7 @@
   --danger: #d13b3b;
   --danger-soft: #fdeaea;
   --ok: #1f8a4c;
+  --warn: #c98a00;
   --shadow: 0 8px 28px rgb(20 24 34 / 0.12), 0 1px 3px rgb(20 24 34 / 0.08);
 
   --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
@@ -51,6 +52,7 @@
     --danger: #ff6b6b;
     --danger-soft: #3a1f23;
     --ok: #4cc98a;
+    --warn: #f2c94c;
     --shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
     color-scheme: dark;
   }
@@ -71,6 +73,7 @@
   --danger: #ff6b6b;
   --danger-soft: #3a1f23;
   --ok: #4cc98a;
+  --warn: #f2c94c;
   --shadow: 0 10px 30px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
   color-scheme: dark;
 }
@@ -196,4 +199,13 @@ textarea.input {
   margin: 0;
   accent-color: var(--accent);
   flex: none;
+}
+
+kbd {
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font: inherit;
+  font-size: var(--text-xs);
+  opacity: 0.7;
 }

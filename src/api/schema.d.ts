@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/v1/admin/restructure": {
+    "/api/v1/admin/move-tasks": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,23 +13,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["run"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agenda": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["agenda"];
-        put?: never;
-        post?: never;
+        post: operations["move"];
         delete?: never;
         options?: never;
         head?: never;
@@ -75,9 +59,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["occurrences"];
         put?: never;
-        post: operations["createEvent"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -91,13 +75,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["event"];
         put?: never;
         post?: never;
-        delete: operations["deleteEvent"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
-        patch: operations["moveEvent"];
+        patch: operations["update_1"];
         trace?: never;
     };
     "/api/v1/ical/feed": {
@@ -148,7 +132,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/quick-add/parse": {
+    "/api/v1/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["labels"];
+        put?: never;
+        post: operations["createLabel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/labels/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -157,11 +157,43 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["parse"];
+        post?: never;
+        delete: operations["deleteLabel"];
+        options?: never;
+        head?: never;
+        patch: operations["updateLabel"];
+        trace?: never;
+    };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["projects"];
+        put?: never;
+        post: operations["createProject"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["project"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch: operations["updateProject"];
         trace?: never;
     };
     "/api/v1/sources": {
@@ -205,7 +237,7 @@ export interface paths {
         };
         get: operations["tasks"];
         put?: never;
-        post: operations["createTask"];
+        post: operations["create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -222,48 +254,53 @@ export interface paths {
         get: operations["task"];
         put?: never;
         post?: never;
-        delete: operations["deleteTask"];
+        delete: operations["delete"];
         options?: never;
         head?: never;
-        patch: operations["updateTask"];
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["relate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/relations/{relationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unrelate"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AgendaEntry: {
-            calendarName: string;
-            categories: string[];
-            color?: string | null;
-            /** Format: date */
-            date?: string | null;
-            done: boolean;
-            /** Format: date-time */
-            due?: string | null;
-            /** Format: date-time */
-            end?: string | null;
-            /** Format: date */
-            endDate?: string | null;
-            fixed: boolean;
-            id: string;
-            /** @enum {string} */
-            kind: "block" | "allDayBlock" | "deadline" | "allDayDeadline";
-            overdue: boolean;
-            repeats: boolean;
-            /** Format: date-time */
-            start?: string | null;
-            /** Format: date */
-            startDate?: string | null;
-            taskId?: string | null;
-            title: string;
-        };
         CalendarResponse: {
             color?: string | null;
+            fixed: boolean;
             id: string;
             name: string;
-            /** Format: int32 */
-            openTasks: number;
         };
         CreateEventRequest: {
             categories?: string[];
@@ -272,18 +309,37 @@ export interface components {
             /** Format: date */
             endDate?: string | null;
             notes?: string;
+            repeat?: components["schemas"]["RepeatDto"] | null;
             /** Format: date-time */
             start?: string | null;
             /** Format: date */
             startDate?: string | null;
-            taskId?: string | null;
             title: string;
         };
+        CreateProjectRequest: {
+            color?: string | null;
+            description?: string;
+            name: string;
+            /** @enum {string} */
+            state?: "backlog" | "planned" | "in_progress" | "paused" | "completed" | "canceled";
+        };
+        CreateRelationRequest: {
+            kind: string;
+            /** Format: uuid */
+            taskId: string;
+        };
         CreateTaskRequest: {
-            categories?: string[];
+            description?: string;
             due?: components["schemas"]["DueDto"] | null;
-            notes?: string;
+            labelIds?: string[];
+            /** Format: uuid */
             parentId?: string | null;
+            /** @enum {string} */
+            priority?: "none" | "urgent" | "high" | "medium" | "low";
+            /** Format: uuid */
+            projectId?: string | null;
+            /** @enum {string} */
+            status?: "backlog" | "todo" | "in_progress" | "done" | "canceled";
             title: string;
         };
         DueDto: {
@@ -291,6 +347,45 @@ export interface components {
             date: string;
             /** Format: time-local */
             time?: string | null;
+        };
+        EventOccurrence: {
+            calendarId: string;
+            calendarName: string;
+            categories: string[];
+            color?: string | null;
+            /** Format: date-time */
+            end?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            fixed: boolean;
+            id: string;
+            repeats: boolean;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            title: string;
+        };
+        EventResponse: {
+            calendarId: string;
+            calendarName: string;
+            categories: string[];
+            color?: string | null;
+            /** Format: date-time */
+            end?: string | null;
+            /** Format: date */
+            endDate?: string | null;
+            fixed: boolean;
+            id: string;
+            notes: string;
+            repeat?: components["schemas"]["RepeatDto"] | null;
+            repeats: boolean;
+            /** Format: date-time */
+            start?: string | null;
+            /** Format: date */
+            startDate?: string | null;
+            title: string;
+            url?: string | null;
         };
         FeedInfo: {
             /** Format: date-time */
@@ -325,47 +420,58 @@ export interface components {
             textual?: boolean;
             valueNode?: boolean;
         };
-        MoveEventRequest: {
-            /** Format: date-time */
-            end?: string | null;
-            /** Format: date */
-            endDate?: string | null;
-            /** Format: date-time */
-            start?: string | null;
-            /** Format: date */
-            startDate?: string | null;
+        LabelRequest: {
+            color?: string | null;
+            name?: string | null;
         };
-        QuickAddDraft: {
-            categories?: string[];
-            due?: components["schemas"]["DueDto"] | null;
-            /** Format: date-time */
-            end?: string | null;
+        LabelResponse: {
+            color: string;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        MoveReport: {
+            /** Format: int32 */
+            labels: number;
+            /** Format: int32 */
+            moved: number;
+            /** Format: int32 */
+            projects: number;
+            /** Format: int32 */
+            skipped: number;
+        };
+        ProjectResponse: {
+            color: string;
+            description: string;
+            /** Format: int32 */
+            doneCount: number;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            source?: string | null;
+            /** @enum {string} */
+            state: "backlog" | "planned" | "in_progress" | "paused" | "completed" | "canceled";
+            /** Format: int32 */
+            taskCount: number;
+        };
+        RelationResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "blocks" | "blocked_by" | "related" | "duplicate_of" | "duplicated_by";
+            task: components["schemas"]["TaskRef"];
+        };
+        RepeatDto: {
+            /** Format: int32 */
+            count?: number | null;
+            /** @enum {string} */
+            freq?: "daily" | "weekly" | "monthly";
+            /** Format: int32 */
+            interval?: number;
+            skipped?: string[];
             /** Format: date */
-            endDate?: string | null;
-            kind: string;
-            notes?: string;
-            /** Format: date-time */
-            start?: string | null;
-            /** Format: date */
-            startDate?: string | null;
-            title: string;
-        };
-        QuickAddRequest: {
-            text: string;
-        };
-        QuickAddResult: {
-            draft: components["schemas"]["QuickAddDraft"];
-            parsed: boolean;
-        };
-        RestructureReport: {
-            /** Format: int32 */
-            calendarsRemoved: number;
-            /** Format: int32 */
-            feedEventsDropped: number;
-            /** Format: int32 */
-            movedToAssistant: number;
-            /** Format: int32 */
-            movedToPlms: number;
+            until?: string | null;
+            weekdays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
         };
         SourceStatus: {
             displayName: string;
@@ -396,36 +502,60 @@ export interface components {
             /** Format: int32 */
             updated?: number;
         };
-        TaskResponse: {
-            calendarId: string;
-            calendarName: string;
-            categories: string[];
-            color?: string | null;
-            done: boolean;
-            /** Format: date-time */
-            doneAt?: string | null;
-            due?: components["schemas"]["DueDto"] | null;
-            etag?: string | null;
-            fixed: boolean;
+        TaskRef: {
+            /** Format: uuid */
             id: string;
             /** Format: int64 */
-            minutesPlanned: number;
+            number: number;
+            /** @enum {string} */
+            status: "backlog" | "todo" | "in_progress" | "done" | "canceled";
+            title: string;
+        };
+        TaskResponse: {
+            blocked: boolean;
+            /** Format: date-time */
+            closedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            due?: components["schemas"]["DueDto"] | null;
+            /** Format: uuid */
+            id: string;
+            labelIds: string[];
             /** Format: int64 */
-            minutesSpent: number;
-            notes: string;
+            number: number;
             overdue: boolean;
+            /** Format: uuid */
             parentId?: string | null;
+            /** @enum {string} */
+            priority: "none" | "urgent" | "high" | "medium" | "low";
+            /** Format: uuid */
+            projectId?: string | null;
+            relations: components["schemas"]["RelationResponse"][];
             source?: string | null;
+            /** @enum {string} */
+            status: "backlog" | "todo" | "in_progress" | "done" | "canceled";
             /** Format: int32 */
             subtasks: number;
             /** Format: int32 */
             subtasksDone: number;
             title: string;
+            /** Format: date-time */
+            updatedAt: string;
             url?: string | null;
+            /** Format: int64 */
+            version: number;
         };
         UpdateCalendarRequest: {
             color?: string | null;
             name?: string | null;
+        };
+        UpdateProjectRequest: {
+            color?: string | null;
+            description?: string | null;
+            name?: string | null;
+            /** @enum {string|null} */
+            state?: "backlog" | "planned" | "in_progress" | "paused" | "completed" | "canceled" | null;
         };
     };
     responses: never;
@@ -436,7 +566,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    run: {
+    move: {
         parameters: {
             query?: never;
             header?: never;
@@ -451,31 +581,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["RestructureReport"];
-                };
-            };
-        };
-    };
-    agenda: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                hide?: string[];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["AgendaEntry"][];
+                    "*/*": components["schemas"]["MoveReport"];
                 };
             };
         };
@@ -526,7 +632,30 @@ export interface operations {
             };
         };
     };
-    createEvent: {
+    occurrences: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EventOccurrence"][];
+                };
+            };
+        };
+    };
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -545,12 +674,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["AgendaEntry"];
+                    "*/*": components["schemas"]["EventResponse"];
                 };
             };
         };
     };
-    deleteEvent: {
+    event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EventResponse"];
+                };
+            };
+        };
+    };
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -570,7 +721,7 @@ export interface operations {
             };
         };
     };
-    moveEvent: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -581,7 +732,8 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MoveEventRequest"];
+                "application/json": components["schemas"]["JsonNode"];
+                "application/merge-patch+json": components["schemas"]["JsonNode"];
             };
         };
         responses: {
@@ -591,7 +743,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["AgendaEntry"];
+                    "*/*": components["schemas"]["EventResponse"];
                 };
             };
         };
@@ -658,7 +810,27 @@ export interface operations {
             };
         };
     };
-    parse: {
+    labels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LabelResponse"][];
+                };
+            };
+        };
+    };
+    createLabel: {
         parameters: {
             query?: never;
             header?: never;
@@ -667,7 +839,53 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["QuickAddRequest"];
+                "application/json": components["schemas"]["LabelRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LabelResponse"];
+                };
+            };
+        };
+    };
+    deleteLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateLabel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelRequest"];
             };
         };
         responses: {
@@ -677,7 +895,119 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["QuickAddResult"];
+                    "*/*": components["schemas"]["LabelResponse"];
+                };
+            };
+        };
+    };
+    projects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProjectResponse"][];
+                };
+            };
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProjectResponse"];
+                };
+            };
+        };
+    };
+    project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProjectResponse"];
+                };
+            };
+        };
+    };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProjectResponse"];
                 };
             };
         };
@@ -727,11 +1057,12 @@ export interface operations {
     tasks: {
         parameters: {
             query?: {
-                status?: string;
-                calendarId?: string;
-                category?: string;
-                hide?: string[];
+                status?: string[];
+                projectId?: string;
+                labelId?: string;
                 parentId?: string;
+                dueFrom?: string;
+                dueTo?: string;
                 q?: string;
             };
             header?: never;
@@ -751,7 +1082,7 @@ export interface operations {
             };
         };
     };
-    createTask: {
+    create: {
         parameters: {
             query?: never;
             header?: never;
@@ -797,7 +1128,7 @@ export interface operations {
             };
         };
     };
-    deleteTask: {
+    delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -817,7 +1148,7 @@ export interface operations {
             };
         };
     };
-    updateTask: {
+    update: {
         parameters: {
             query?: never;
             header?: {
@@ -834,6 +1165,55 @@ export interface operations {
                 "application/merge-patch+json": components["schemas"]["JsonNode"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TaskResponse"];
+                };
+            };
+        };
+    };
+    relate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRelationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TaskResponse"];
+                };
+            };
+        };
+    };
+    unrelate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                relationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

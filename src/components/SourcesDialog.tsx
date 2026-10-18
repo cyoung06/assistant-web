@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../api/client";
 import { useState } from "react";
-import { useFeed, useRotateFeed, useSources, useSyncSource } from "../api/queries";
+import { useFeed, useRotateFeed, useSources, useSyncSource } from "../api/sources";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -27,7 +27,7 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </header>
-        <p className={styles.hint}>Items from these sources sync on their own. You keep control of done, tags and notes.</p>
+        <p className={styles.hint}>Tasks and events from these sources sync on their own. You keep control of status, priority, labels and notes.</p>
         {sources.isPending && <p className={styles.hint}>Loading…</p>}
         {sources.error && <p className={styles.error}>{sources.error.message}</p>}
         <ul className={styles.list}>

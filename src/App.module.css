@@ -31,17 +31,6 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-.navItem {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 6px;
-  background: var(--line-strong);
-}
 .nav button {
   white-space: nowrap;
   height: 32px;
@@ -61,10 +50,8 @@
   background: var(--surface-2);
 }
 
-.quick {
+.spacer {
   flex: 1;
-  min-width: 0;
-  display: flex;
 }
 
 .main {
@@ -72,19 +59,6 @@
 }
 
 @media (max-width: 640px) {
-  /* Quick add gets its own full-width row under the navigation. */
-  .header {
-    flex-wrap: wrap;
-    gap: 6px 8px;
-    padding-block: 8px;
-  }
-  .quick {
-    order: 3;
-    flex-basis: 100%;
-  }
-  .nav {
-    flex: 1;
-  }
   .brand {
     display: none;
   }

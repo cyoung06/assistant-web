@@ -1,0 +1,69 @@
+.list {
+  padding-bottom: 80px;
+}
+
+.group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  border: 0;
+  background: none;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-align: left;
+}
+
+.danger .toggle {
+  color: var(--danger);
+}
+
+.caret {
+  width: 12px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+}
+
+.count {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.add {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+.add:hover {
+  background: var(--line);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 80px 16px;
+  color: var(--text-2);
+  text-align: center;
+}
+.empty p {
+  margin: 0;
+}

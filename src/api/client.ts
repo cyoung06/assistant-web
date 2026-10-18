@@ -3,24 +3,43 @@ import type { components, paths } from "./schema";
 
 type Schemas = components["schemas"];
 export type Task = Schemas["TaskResponse"];
-export type Calendar = Schemas["CalendarResponse"];
-export type AgendaEntry = Schemas["AgendaEntry"];
+export type TaskStatus = Task["status"];
+export type Priority = Task["priority"];
 export type Due = Schemas["DueDto"];
+export type Relation = Schemas["RelationResponse"];
+export type RelationKind = Relation["kind"];
+export type Project = Schemas["ProjectResponse"];
+export type ProjectState = Project["state"];
+export type Label = Schemas["LabelResponse"];
 export type CreateTask = Schemas["CreateTaskRequest"];
+export type Calendar = Schemas["CalendarResponse"];
+export type EventOccurrence = Schemas["EventOccurrence"];
+export type CalendarEvent = Schemas["EventResponse"];
 export type CreateEvent = Schemas["CreateEventRequest"];
-export type QuickAddDraft = Schemas["QuickAddDraft"];
-export type QuickAddResult = Schemas["QuickAddResult"];
+export type Repeat = Schemas["RepeatDto"];
 export type SourceStatus = Schemas["SourceStatus"];
 
 /** JSON merge patch for a task: absent fields stay, null clears. */
 export type TaskPatch = Partial<{
   title: string;
-  notes: string;
+  description: string;
+  status: TaskStatus;
+  priority: Priority;
   due: Due | null;
-  done: boolean;
-  categories: string[];
+  projectId: string | null;
+  labelIds: string[];
   parentId: string | null;
-  calendarId: string;
+}>;
+
+/** JSON merge patch for an event. */
+export type EventPatch = Partial<{
+  title: string;
+  notes: string;
+  start: string;
+  end: string;
+  startDate: string;
+  endDate: string;
+  repeat: Repeat | null;
 }>;
 
 /** An error response from the API (RFC 9457 problem details). */

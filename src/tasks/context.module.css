@@ -1,0 +1,25 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 70;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--surface);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow);
+}
+
+.undo {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent-soft);
+  font-weight: 650;
+}
