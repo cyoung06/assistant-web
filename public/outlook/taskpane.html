@@ -9,43 +9,85 @@
   <link rel="stylesheet" href="taskpane.css" />
 </head>
 <body>
-  <main id="app">
-    <p class="muted" id="loading">Loading…</p>
+  <header class="brand">
+    <img src="icon-32.png" alt="" width="20" height="20" />
+    <span>Assistant</span>
+  </header>
 
+  <main>
+    <p class="muted center" id="loading">Loading…</p>
+
+    <!-- First run: connect with a token. -->
     <section id="setup" hidden>
       <h1>Connect to Assistant</h1>
-      <p class="muted">Create a token in Assistant (Sources → Outlook add-in) and paste it here. It stays with your Outlook account.</p>
-      <input id="token" type="password" placeholder="ast_…" autocomplete="off" />
+      <ol class="steps">
+        <li>Open Assistant and go to <b>Sources → Outlook add-in</b>.</li>
+        <li>Click <b>Create token</b> and copy it.</li>
+        <li>Paste it below. Outlook keeps it with your account.</li>
+      </ol>
+      <input id="token" type="password" placeholder="ast_…" autocomplete="off" spellcheck="false" />
       <button id="saveToken" class="primary">Connect</button>
       <p class="error" id="setupError"></p>
     </section>
 
+    <!-- A mail is open. -->
     <section id="mail" hidden>
-      <div class="tabs">
-        <button id="tabTask" class="on">Reply later</button>
-        <button id="tabAnalyze">Analyze</button>
+      <div class="card mailcard">
+        <div class="subject" id="subject"></div>
+        <div class="muted small" id="sender"></div>
       </div>
 
-      <div id="taskForm">
-        <label>Title<input id="title" /></label>
-        <div class="row" id="dueChoices"></div>
-        <label>Project<select id="project"><option value="">No project</option></select></label>
-        <label class="check"><input type="checkbox" id="reply" checked /> Label “reply”</label>
-        <button id="add" class="primary">Add to Assistant</button>
+      <div class="tabs" role="tablist">
+        <button id="tabTask" role="tab" class="on">Reply later</button>
+        <button id="tabAnalyze" role="tab">Analyze</button>
       </div>
 
-      <div id="analyzeForm" hidden>
-        <p class="muted">The model reads this mail and proposes tasks and events. Nothing is added until you choose.</p>
-        <button id="analyze" class="primary">Analyze this mail</button>
-        <div id="proposals"></div>
-        <button id="createPicked" class="primary" hidden>Add selected</button>
+      <div id="taskForm" class="stack">
+        <label class="field">
+          <span>Task</span>
+          <textarea id="title" rows="2"></textarea>
+        </label>
+        <div class="field">
+          <span>Due</span>
+          <div class="chips" id="dueChoices"></div>
+          <input id="pickDate" type="date" hidden />
+        </div>
+        <div class="row">
+          <label class="field grow">
+            <span>Project</span>
+            <select id="project"><option value="">No project</option></select>
+          </label>
+          <div class="field">
+            <span>Label</span>
+            <button id="reply" class="chip on" aria-pressed="true">reply</button>
+          </div>
+        </div>
+        <button id="add" class="primary wide">Add to Assistant</button>
+      </div>
+
+      <div id="analyzeForm" class="stack" hidden>
+        <p class="muted small">The model reads this mail and suggests tasks and events. Nothing is added until you choose.</p>
+        <button id="analyze" class="primary wide">Analyze this mail</button>
+        <div id="proposals" class="stack"></div>
+        <button id="createPicked" class="primary wide" hidden>Add selected</button>
+      </div>
+
+      <div id="done" class="card done" hidden>
+        <div class="check">✓</div>
+        <div class="grow">
+          <div id="doneText">Added to Assistant</div>
+          <div class="links"><a id="doneOpen" target="_blank" hidden>Open in Assistant ↗</a><a href="#" id="again">Add another</a></div>
+        </div>
       </div>
 
       <p class="error" id="error"></p>
-      <p class="done" id="done" hidden></p>
-      <p class="footer"><a href="#" id="forget">Disconnect</a></p>
     </section>
   </main>
+
+  <footer id="footer" hidden>
+    <span class="muted small">Connected</span>
+    <a href="#" id="forget" class="small">Disconnect</a>
+  </footer>
   <script src="taskpane.js"></script>
 </body>
 </html>
