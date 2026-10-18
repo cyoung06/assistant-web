@@ -21,10 +21,10 @@ npm run dev        # http://localhost:5173, proxies /api to :8080
 | `npm test` | Unit tests (calendar ↔ item mapping), run in Asia/Seoul |
 | `npm run api:types` | Regenerate `src/api/schema.d.ts` from `../api/openapi.json` |
 
-## Sign-in
+## Access
 
-Set `VITE_GOOGLE_CLIENT_ID` (see `.env.example`) to require Google sign-in; the ID token is sent to the
-API as a bearer token. Without it, no token is sent, which matches the API's local dev mode.
+There is no login. The app is served only through the Tailscale ingress, so the tailnet is the
+access boundary.
 
 ## Layout
 

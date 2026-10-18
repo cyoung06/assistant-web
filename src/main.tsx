@@ -9,7 +9,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 10_000,
-      // Client errors (validation, not found, auth) won't succeed on retry.
+      // Client errors (validation, not found) won't succeed on retry.
       retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
     },
   },

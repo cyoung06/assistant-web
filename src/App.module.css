@@ -48,28 +48,6 @@
   min-height: 0;
 }
 
-.signIn {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 8px;
-  height: 100%;
-  padding: 16px;
-  text-align: center;
-}
-.signIn h1 {
-  margin: 0;
-  font-size: var(--text-xl);
-}
-.signIn p {
-  margin: 0 0 8px;
-  color: var(--text-2);
-}
-
-.error {
-  color: var(--danger);
-}
-
 @media (max-width: 640px) {
   .header {
     gap: 8px;

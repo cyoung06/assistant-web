@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { authEnabled, isSignedIn, onAuthChange, renderSignIn } from "./auth/google";
+import { useMemo, useState } from "react";
 import { ItemPanel } from "./components/ItemPanel";
 import { PanelContext, type PanelApi, type PanelTarget } from "./components/panel";
 import { QuickAdd } from "./components/QuickAdd";
@@ -15,12 +14,6 @@ function initialPage(): Page {
 }
 
 export function App() {
-  const [signedIn, setSignedIn] = useState(isSignedIn());
-  useEffect(() => onAuthChange(() => setSignedIn(isSignedIn())), []);
-  return signedIn ? <Shell /> : <SignIn />;
-}
-
-function Shell() {
   const [page, setPage] = useState<Page>(initialPage);
   const [panel, setPanel] = useState<PanelTarget>(null);
   const [tagsOpen, setTagsOpen] = useState(false);
@@ -62,21 +55,5 @@ function Shell() {
       <ItemPanel target={panel} />
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
     </PanelContext.Provider>
-  );
-}
-
-function SignIn() {
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (authEnabled && buttonRef.current) renderSignIn(buttonRef.current).catch((e: Error) => setError(e.message));
-  }, []);
-  return (
-    <div className={styles.signIn}>
-      <h1>Assistant</h1>
-      <p>Sign in with your Google account.</p>
-      <div ref={buttonRef} />
-      {error && <p className={styles.error}>{error}</p>}
-    </div>
   );
 }

@@ -1,5 +1,4 @@
-import createClient, { type Middleware } from "openapi-fetch";
-import { currentToken, signOut } from "../auth/google";
+import createClient from "openapi-fetch";
 import type { components, paths } from "./schema";
 
 type Schemas = components["schemas"];
@@ -35,20 +34,7 @@ export class ApiError extends Error {
   }
 }
 
-const auth: Middleware = {
-  onRequest({ request }) {
-    const token = currentToken();
-    if (token) request.headers.set("Authorization", `Bearer ${token}`);
-    return request;
-  },
-  onResponse({ response }) {
-    if (response.status === 401) signOut();
-    return response;
-  },
-};
-
 export const api = createClient<paths>({ baseUrl: "" });
-api.use(auth);
 
 interface Problem {
   title?: string;
