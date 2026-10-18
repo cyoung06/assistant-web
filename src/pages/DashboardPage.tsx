@@ -122,7 +122,7 @@ function WeekStrip({ week, today }: { week: Day[]; today: string }) {
     <div className={styles.week} aria-label="This week">
       {week.map((d) => {
         const blocks = d.schedule.length;
-        const due = d.deadlines.length;
+        const due = d.deadlines.filter((e) => !e.done).length;
         return (
           <span key={d.date} className={`${styles.weekDay} ${d.date === today ? styles.weekToday : ""} ${d.date < today ? styles.weekPast : ""}`}>
             <span className={styles.weekName}>{weekday.format(parseDate(d.date))}</span>
