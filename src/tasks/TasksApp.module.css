@@ -1,38 +1,16 @@
-.app {
+.page {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-}
-
-.tabs {
-  display: flex;
-  gap: 2px;
-  padding: 8px 12px 0;
-  border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.tabs button {
-  height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-2);
-  font-size: var(--text-sm);
-  font-weight: 600;
-}
-.tabs .current {
-  border-bottom-color: var(--accent);
-  color: var(--text);
-}
 
-.page {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  background: var(--surface);
+.pageTitle {
+  margin: 0;
+  padding: 14px 16px 2px;
+  font-size: var(--text-lg);
+  font-weight: 650;
 }
 
 .toolbar {
@@ -169,43 +147,10 @@
   font-weight: 650;
   outline: none;
 }
-.stateSelect {
+.projectHead .stateSelect {
   width: auto;
   height: 30px;
   font-size: var(--text-sm);
-}
-
-/* Keyboard help */
-.sheet {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 55;
-  width: min(320px, calc(100vw - 32px));
-  padding: 12px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  font-size: var(--text-sm);
-}
-.sheet header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.sheet dl {
-  margin: 0;
-}
-.sheet dl div {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-.sheet dd {
-  margin: 0;
-  color: var(--text-2);
 }
 
 @media (max-width: 640px) {

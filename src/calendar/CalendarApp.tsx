@@ -7,22 +7,22 @@ import type { DateSelectArg, EventClickArg, EventContentArg, EventDropArg } from
 import { addDays, shortTime, toDateString } from "../lib/dates";
 import { useProjects, useTaskMutations, useTasks } from "../tasks/api";
 import { useTasksUi } from "../tasks/context";
-import { Dot } from "../tasks/icons";
-import { useCalendars, useEventMutations, useEvents } from "./api";
+import { useEventMutations, useEvents } from "./api";
 import { EventDialog, type EventTarget } from "./EventDialog";
 import { changeForPlacement, toEvent, type CalItem } from "./mapping";
 import styles from "./CalendarApp.module.css";
 import "./fullcalendar.css";
 
-const DEADLINES = "deadlines";
+/** The id that hides task deadlines, next to the calendar ids. */
+export const DEADLINES = "deadlines";
 
-/** The Calendar sub-app: classes, meetings and holidays, plus the deadlines from Tasks. */
-export function CalendarApp() {
+/**
+ * The Calendar sub-app: classes, meetings and holidays, plus the deadlines from Tasks. [hidden]
+ * holds the calendars (and [DEADLINES]) switched off in the sidebar.
+ */
+export function CalendarApp({ hidden }: { hidden: string[] }) {
   const [range, setRange] = useState({ from: "", to: "" });
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialog, setDialog] = useState<EventTarget | null>(null);
-  const calendars = useCalendars().data ?? [];
   const events = useEvents(range.from, range.to);
   const tasks = useTasks();
   const projects = useProjects().data ?? [];
@@ -67,34 +67,11 @@ export function CalendarApp() {
     setDialog({ kind: "edit", id: item.event.id, occurrence: item.event.startDate ?? toDateString(new Date(item.event.start!)) });
   };
 
-  const toggle = (id: string, on: boolean) => setHidden((h) => (on ? h.filter((x) => x !== id) : [...h, id]));
-
   return (
     <div className={styles.page}>
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.open : ""}`}>
-        <section className={styles.section}>
-          <h2 className="label">Calendars</h2>
-          {calendars.map((c) => (
-            <label key={c.id} className={styles.toggle}>
-              <input className="checkbox" type="checkbox" checked={!hidden.includes(c.id)} onChange={(e) => toggle(c.id, e.target.checked)} />
-              <Dot color={c.color} />
-              {c.name}
-            </label>
-          ))}
-          <label className={styles.toggle}>
-            <input className="checkbox" type="checkbox" checked={!hidden.includes(DEADLINES)} onChange={(e) => toggle(DEADLINES, e.target.checked)} />
-            <span className={styles.dueMark} aria-hidden />
-            Task deadlines
-          </label>
-        </section>
-        <p className={styles.hint}>Click or drag on an empty slot to add an event. Click a class to change its weekly times or skip a date.</p>
-      </aside>
-
       <div className={styles.main}>
-        <div className={styles.mobileBar}>
-          <button className="btn" onClick={() => setSidebarOpen((o) => !o)}>
-            {sidebarOpen ? "Hide calendars" : "Calendars"}
-          </button>
+        <div className={styles.bar}>
+          <span className={styles.hint}>Click or drag on an empty slot to add an event. Click a class to change its weekly times or skip a date.</span>
           <button className="btn btn-primary" onClick={() => setDialog({ kind: "new", start: nextHour(), end: new Date(nextHour().getTime() + 3_600_000), allDay: false })}>
             New event
           </button>

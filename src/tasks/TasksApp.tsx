@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Project, ProjectState } from "../api/client";
 import { today } from "../lib/dates";
 import { useLabels, useProjectMutations, useProjects, useTasks } from "./api";
-import { shortcutsBlocked, useTasksUi } from "./context";
+import { useTasksUi } from "./context";
 import { Dot } from "./icons";
 import { closedGroup, groupTasks, GROUPINGS, ORDERINGS, type Grouping, type Ordering } from "./model";
 import { TaskList } from "./TaskList";
@@ -17,23 +17,23 @@ const PROJECT_STATES: { value: ProjectState; label: string }[] = [
   { value: "canceled", label: "Canceled" },
 ];
 
-/** The Tasks sub-app. [route] is what follows "#tasks/": "", "projects" or "project/<id>". */
+/** The task views in the sidebar; closed tasks show (folded) only under All and in projects. */
+export const VIEWS = [
+  { id: "active", label: "Active", statuses: ["todo", "in_progress"] },
+  { id: "backlog", label: "Backlog", statuses: ["backlog"] },
+  { id: "all", label: "All tasks", statuses: null },
+] as const;
+export type View = (typeof VIEWS)[number]["id"];
+
+/** Asks the open task list to focus its search box (from the sidebar's search button). */
+export const FOCUS_SEARCH = "tasks:focus-search";
+
+/** The Tasks sub-app. [route] is what follows "#tasks/": a view, "projects" or "project/<id>". */
 export function TasksApp({ route, go }: { route: string; go: (route: string) => void }) {
+  if (route === "projects") return <ProjectsPage open={(id) => go(`project/${id}`)} />;
   const projectId = route.startsWith("project/") ? route.slice(8) : null;
-  return (
-    <div className={styles.app}>
-      <nav className={styles.tabs}>
-        <button className={!route ? styles.current : ""} onClick={() => go("")}>
-          All tasks
-        </button>
-        <button className={route === "projects" || projectId ? styles.current : ""} onClick={() => go("projects")}>
-          Projects
-        </button>
-      </nav>
-      {route === "projects" ? <ProjectsPage open={(id) => go(`project/${id}`)} /> : <TasksPage key={projectId ?? "all"} projectId={projectId} back={() => go("projects")} />}
-      <Shortcuts />
-    </div>
-  );
+  const view = VIEWS.find((v) => v.id === route) ?? VIEWS[0];
+  return <TasksPage key={projectId ?? view.id} view={projectId ? null : view} projectId={projectId} back={() => go("projects")} />;
 }
 
 // ---- the list -------------------------------------------------------------------------
@@ -67,29 +67,27 @@ function useDisplay(): [Display, (d: Partial<Display>) => void] {
   return [display, update];
 }
 
-function TasksPage({ projectId, back }: { projectId: string | null; back: () => void }) {
+function TasksPage({ view, projectId, back }: { view: (typeof VIEWS)[number] | null; projectId: string | null; back: () => void }) {
   const tasks = useTasks();
   const projects = useProjects().data ?? [];
   const labels = useLabels().data ?? [];
   const { openCreate } = useTasksUi();
   const [display, setDisplay] = useDisplay();
   const [query, setQuery] = useState("");
-  const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
-  const baseDefaults = projectId ? { projectId } : {};
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (shortcutsBlocked(e) || e.key.toLowerCase() !== "c") return;
-      e.preventDefault();
-      openCreate(baseDefaults);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+    const focus = () => searchRef.current?.focus();
+    window.addEventListener(FOCUS_SEARCH, focus);
+    return () => window.removeEventListener(FOCUS_SEARCH, focus);
+  }, []);
+  const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
+  const baseDefaults = projectId ? { projectId } : {};
 
   const q = query.trim().toLowerCase();
   const shown = (tasks.data ?? [])
     .filter((t) => !projectId || t.projectId === projectId)
+    .filter((t) => !view?.statuses || (view.statuses as readonly string[]).includes(t.status))
     .filter((t) => display.subtasks || !t.parentId)
     .filter((t) => !q || t.title.toLowerCase().includes(q) || `#${t.number}` === q);
   const ctx = { today: today(), projects, labels };
@@ -97,9 +95,9 @@ function TasksPage({ projectId, back }: { projectId: string | null; back: () => 
 
   return (
     <div className={styles.page}>
-      {projectId && <ProjectHeader project={project} back={back} />}
+      {projectId ? <ProjectHeader project={project} back={back} /> : <h1 className={styles.pageTitle}>{view?.label}</h1>}
       <div className={styles.toolbar}>
-        <input id="tasks-search" className={`input ${styles.search}`} type="search" placeholder="Search or #number" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input ref={searchRef} id="tasks-search" className={`input ${styles.search}`} type="search" placeholder="Search or #number" value={query} onChange={(e) => setQuery(e.target.value)} />
         <label className={styles.option}>
           Group
           <select id="tasks-grouping" className="input" value={display.grouping} onChange={(e) => setDisplay({ grouping: e.target.value as Grouping })}>
@@ -132,7 +130,7 @@ function TasksPage({ projectId, back }: { projectId: string | null; back: () => 
       <div className={styles.scroll}>
         {tasks.isPending && <p className={styles.note}>Loading…</p>}
         {tasks.error && <p className={styles.note}>{tasks.error.message}</p>}
-        {tasks.isSuccess && <TaskList groups={groups} closed={closedGroup(shown)} tasks={shown} showProject={!projectId} baseDefaults={baseDefaults} />}
+        {tasks.isSuccess && <TaskList groups={groups} closed={closedGroup(view?.statuses ? [] : shown)} tasks={shown} showProject={!projectId} baseDefaults={baseDefaults} />}
       </div>
     </div>
   );
@@ -155,6 +153,7 @@ function ProjectsPage({ open }: { open: (id: string) => void }) {
 
   return (
     <div className={styles.page}>
+      <h1 className={styles.pageTitle}>Projects</h1>
       <div className={styles.toolbar}>
         <input
           id="new-project"
@@ -247,56 +246,6 @@ function ProjectHeader({ project: p, back }: { project: Project | undefined; bac
           Delete project
         </button>
       )}
-    </div>
-  );
-}
-
-// ---- keyboard help --------------------------------------------------------------------
-
-const KEYS: [string, string][] = [
-  ["C", "New task"],
-  ["J / K", "Next / previous task"],
-  ["Enter", "Open task"],
-  ["X", "Mark done (again: reopen)"],
-  ["S", "Status"],
-  ["P", "Priority"],
-  ["D", "Due date"],
-  ["L", "Labels"],
-  ["M", "Move to project"],
-  ["⌘↵", "Create (in the new task dialog)"],
-  ["Esc", "Close"],
-  ["?", "This list"],
-];
-
-function Shortcuts() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "?" && !shortcutsBlocked(e)) setOpen((o) => !o);
-      else if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  if (!open) return null;
-  return (
-    <div className={styles.sheet} role="dialog" aria-label="Keyboard shortcuts">
-      <header>
-        <strong>Keyboard shortcuts</strong>
-        <button className="btn btn-ghost" onClick={() => setOpen(false)} aria-label="Close">
-          ✕
-        </button>
-      </header>
-      <dl>
-        {KEYS.map(([k, what]) => (
-          <div key={k}>
-            <dt>
-              <kbd>{k}</kbd>
-            </dt>
-            <dd>{what}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }
