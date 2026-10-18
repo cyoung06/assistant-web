@@ -224,8 +224,8 @@ function ExistingTask({ id }: { id: string }) {
             <span className={styles.hint}>Delete with its sub-tasks and work sessions?</span>
             <button
               className="btn btn-danger"
-              onClick={async () => {
-                await remove.mutateAsync(id);
+              onClick={() => {
+                remove.mutate(id);
                 close();
               }}
             >
