@@ -4,7 +4,7 @@ import { Shortcuts } from "./shell/Shortcuts";
 import { Sidebar } from "./shell/Sidebar";
 import { appRoute, plmsWebUrl } from "./refs/kinds";
 import { FilesPage } from "./files/FilesPage";
-import { filesRoute, folderOfRoute } from "./files/api";
+import { filesRoute, pathOfRoute } from "./files/api";
 import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
@@ -190,7 +190,7 @@ function Shell() {
           ) : onTriage ? (
             <TriagePage />
           ) : onFiles ? (
-            <FilesPage path={"Projects/" + folderOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p.startsWith("Projects/") ? p.slice(9) : p))} />
+            <FilesPage path={"Projects/" + pathOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p.startsWith("Projects/") ? p.slice(9) : p))} />
           ) : onCalendar ? (
             <CalendarApp hidden={hidden} openEventId={openEventId} onOpened={clearOpenEvent} />
           ) : (

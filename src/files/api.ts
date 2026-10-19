@@ -23,6 +23,10 @@ export function useProjectFolder(projectId: string) {
 /** Where a file can be opened (the browser shows PDFs and images, downloads the rest). */
 export const fileUrl = (path: string) => `/api/v1/drive/file?path=${encodeURIComponent(path)}`;
 
+/** A preview of a PDF's first page ([modified] keeps it fresh when the file changes). */
+export const thumbUrl = (path: string, modified?: string | null, width = 240) =>
+  `/api/v1/drive/thumb?path=${encodeURIComponent(path)}&version=${encodeURIComponent(modified ?? "")}&width=${width}`;
+
 export function useDriveMutations() {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ["drive"] });
@@ -62,11 +66,12 @@ export function size(bytes: number) {
   return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
 }
 
-/** The app address of a drive folder: files/<segments, each encoded>. */
-export const filesRoute = (path: string) => "files/" + path.split("/").filter(Boolean).map(encodeURIComponent).join("/") + (path ? "/" : "");
+/** The app address of a drive folder or file: files/<segments, each encoded> (folders end with "/"). */
+export const filesRoute = (path: string) =>
+  "files/" + path.split("/").filter(Boolean).map(encodeURIComponent).join("/") + (path.endsWith("/") ? "/" : "");
 
-/** The drive folder an app address (after "files/") stands for. */
-export const folderOfRoute = (rest: string) => {
+/** The drive path an app address (after "files/") stands for: a folder (ending with "/"), or a file to show. */
+export const pathOfRoute = (rest: string) => {
   const parts = rest.split("/").filter(Boolean).map((p) => {
     try {
       return decodeURIComponent(p);
@@ -74,5 +79,23 @@ export const folderOfRoute = (rest: string) => {
       return p;
     }
   });
-  return parts.length ? parts.join("/") + "/" : "";
+  return parts.length === 0 ? "" : parts.join("/") + (rest.endsWith("/") ? "/" : "");
 };
+
+/** The folder a drive path is in (a folder's own parent). */
+export const parentOf = (path: string) => {
+  const parts = path.split("/").filter(Boolean);
+  return parts.length <= 1 ? "" : parts.slice(0, -1).join("/") + "/";
+};
+
+/** The kind of file, for its icon and how it's shown. */
+export function kind(e: { name: string; folder?: boolean }): "folder" | "pdf" | "image" | "video" | "audio" | "text" | "file" {
+  if (e.folder) return "folder";
+  const n = e.name.toLowerCase();
+  if (n.endsWith(".pdf")) return "pdf";
+  if (/\.(png|jpe?g|gif|webp|svg|bmp|avif)$/.test(n)) return "image";
+  if (/\.(mp4|mov|webm|m4v)$/.test(n)) return "video";
+  if (/\.(mp3|m4a|wav|ogg|flac|aac)$/.test(n)) return "audio";
+  if (/\.(txt|md|markdown|csv|tsv|json|ya?ml|toml|xml|html?|css|log|tex|bib|sh|py|ipynb|c|h|cc|cpp|hpp|java|kt|kts|js|jsx|ts|tsx|rs|go|rb|swift|sql|m|r|ini|conf)$/.test(n)) return "text";
+  return "file";
+}

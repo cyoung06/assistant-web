@@ -19,6 +19,11 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
 }
+.back {
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 10px;
+}
 .crumbs {
   display: flex;
   flex-wrap: wrap;
@@ -126,11 +131,20 @@
 }
 .arrow {
   flex: none;
-  width: 18px;
+  width: 24px;
+  height: 26px;
+  padding: 0;
   border: 0;
+  border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-3);
-  font-size: 11px;
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.arrow:hover {
+  background: var(--line);
+  color: var(--text);
 }
 .treeName {
   flex: 1;
@@ -152,7 +166,7 @@
   min-width: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   grid-auto-rows: min-content;
   gap: 10px;
   padding: 14px 16px 24px;
@@ -186,6 +200,14 @@
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
+}
+.pdfThumb {
+  width: auto;
+  max-width: 100%;
+  height: 120px;
+  object-fit: contain;
+  background: white;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
 }
 .tileName {
   width: 100%;

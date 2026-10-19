@@ -1,28 +1,21 @@
 import { useEffect, useState, type DragEvent } from "react";
-import { fileUrl, size, useDriveInfo, useDriveMutations, useFolder, type DriveEntry } from "./api";
+import { fileUrl, kind, parentOf, thumbUrl, size, useDriveInfo, useDriveMutations, useFolder, type DriveEntry } from "./api";
+import { FileViewer } from "./FileViewer";
 import styles from "./FilesPage.module.css";
 
-/** The kind of file, for its icon and how it opens. */
-function kind(e: DriveEntry): "folder" | "pdf" | "image" | "video" | "file" {
-  if (e.folder) return "folder";
-  const n = e.name.toLowerCase();
-  if (n.endsWith(".pdf")) return "pdf";
-  if (/\.(png|jpe?g|gif|webp|heic)$/.test(n)) return "image";
-  if (/\.(mp4|mov|webm|mkv)$/.test(n)) return "video";
-  return "file";
-}
-
-const ICON: Record<ReturnType<typeof kind>, string> = { folder: "📁", pdf: "📄", image: "🖼️", video: "🎞️", file: "📎" };
+const ICON: Record<ReturnType<typeof kind>, string> = { folder: "📁", pdf: "📄", image: "🖼️", video: "🎞️", audio: "🎵", text: "📝", file: "📎" };
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "");
 
 /**
  * Projects' storage (each project's folder in the drive, with the course files PLMS puts there),
- * browsed by folder from [root]: all projects, or one project's own. Files open in the browser;
- * files dropped on the page (or picked) are uploaded into the folder shown. The same storage is
- * mounted in Finder and on the devices.
+ * browsed by folder from [root]: all projects, or one project's own. [path] is a folder (ending
+ * with "/"), or a file, shown over its folder. Files dropped on the page (or picked) are uploaded
+ * into the folder shown. The same storage is mounted in Finder and on the devices.
  */
-export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: { path: string; go: (path: string) => void; root?: string; rootName?: string }) {
+export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files" }: { path: string; go: (path: string) => void; root?: string; rootName?: string }) {
+  const viewing = at.endsWith("/") || at === "" ? null : at;
+  const path = viewing ? parentOf(viewing) : at;
   const folder = useFolder(path);
   const info = useDriveInfo().data;
   const { upload, makeFolder, move, remove } = useDriveMutations();
@@ -44,6 +37,13 @@ export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: 
   // Project folders (Projects/<name>/) follow their projects: they're renamed by renaming the project.
   const fixed = (e: DriveEntry) => e.path.split("/").filter(Boolean).length <= 2 && e.path.startsWith("Projects/");
 
+  // A folder's address written without its "/": open the folder.
+  const entry = viewing ? folder.data?.entries.find((e) => e.path.replace(/\/$/, "") === viewing) : undefined;
+  useEffect(() => {
+    if (entry?.folder) go(entry.path);
+  }, [entry, go]);
+  const files = folder.data?.entries.filter((e) => !e.folder) ?? [];
+
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setOver(false);
@@ -59,6 +59,11 @@ export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: 
       onDrop={onDrop}
     >
       <div className={styles.head}>
+        {path !== root && path.startsWith(root) && (
+          <button className={`btn btn-ghost ${styles.back}`} onClick={() => go(parentOf(path))} title="Up to the folder this is in" aria-label="Back">
+            ‹
+          </button>
+        )}
         <nav className={styles.crumbs} aria-label="Folder">
           <button onClick={() => go(root)}>{rootName}</button>
           {parts.map((p, i) => (
@@ -127,11 +132,17 @@ export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: 
                 <span className={styles.tileName}>{e.name}</span>
               </button>
             ) : (
-              <a key={e.path} className={styles.tile} href={fileUrl(e.path)} target="_blank" rel="noreferrer" title={e.name}>
-                {kind(e) === "image" ? <img className={styles.thumb} src={fileUrl(e.path)} alt="" loading="lazy" /> : <span className={styles.tileIcon}>{ICON[kind(e)]}</span>}
+              <button key={e.path} className={styles.tile} onClick={() => go(e.path)} title={e.name}>
+                {kind(e) === "image" ? (
+                  <img className={styles.thumb} src={fileUrl(e.path)} alt="" loading="lazy" />
+                ) : kind(e) === "pdf" ? (
+                  <PdfThumb entry={e} />
+                ) : (
+                  <span className={styles.tileIcon}>{ICON[kind(e)]}</span>
+                )}
                 <span className={styles.tileName}>{e.name}</span>
                 <span className={styles.tileMeta}>{size(e.size)}</span>
-              </a>
+              </button>
             ),
           )}
         </div>
@@ -160,9 +171,9 @@ export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: 
                 {e.name}
               </button>
             ) : (
-              <a className={styles.name} href={fileUrl(e.path)} target="_blank" rel="noreferrer">
+              <button className={styles.name} onClick={() => go(e.path)}>
                 {e.name}
-              </a>
+              </button>
             )}
             <span className={styles.meta}>{e.folder ? "" : size(e.size)}</span>
             <span className={styles.meta}>{when(e.modified)}</span>
@@ -198,9 +209,19 @@ export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: 
       </div>
       )}
       </div>
+      {viewing && !entry?.folder && (
+        <FileViewer path={viewing} entry={entry} files={files} go={go} close={() => go(path)} />
+      )}
       {over && <div className={styles.dropHint}>Drop to upload into {parts.at(-1) ?? rootName}</div>}
     </div>
   );
+}
+
+/** A PDF's first page (its icon until the preview loads, or if it can't be made). */
+function PdfThumb({ entry }: { entry: DriveEntry }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className={styles.tileIcon}>{ICON.pdf}</span>;
+  return <img className={`${styles.thumb} ${styles.pdfThumb}`} src={thumbUrl(entry.path, entry.modified)} alt="" loading="lazy" onError={() => setFailed(true)} />;
 }
 
 /** One folder in the tree: click to open it, the arrow to show what's inside (remembered). */
