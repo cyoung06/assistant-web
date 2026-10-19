@@ -23,7 +23,7 @@ export function useEvent(id: string | null) {
   });
 }
 
-/** A project's calendar: its repeating events summed up, and the next four weeks' one-off events and skipped dates. */
+/** A project's calendar: its repeating events summed up, every one-off event to come, and the next four weeks' skipped dates. */
 export function useProjectSchedule(projectId: string) {
   return useQuery({
     queryKey: ["schedule", projectId],
