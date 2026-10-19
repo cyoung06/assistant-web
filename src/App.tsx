@@ -3,6 +3,8 @@ import { CalendarApp } from "./calendar/CalendarApp";
 import { Shortcuts } from "./shell/Shortcuts";
 import { Sidebar } from "./shell/Sidebar";
 import { appRoute, plmsWebUrl } from "./refs/kinds";
+import { FilesPage } from "./files/FilesPage";
+import { filesRoute, folderOfRoute } from "./files/api";
 import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
@@ -121,6 +123,7 @@ function Shell() {
   const mailId = hash.startsWith("mail/") ? decodeURIComponent(hash.slice(5)) : null;
   const onTriage = hash === "triage";
   const onCalendar = hash.startsWith("calendar");
+  const onFiles = hash === "files" || hash.startsWith("files/");
   const tasksRoute = hash.startsWith("tasks/") ? hash.slice(6) : "";
   const projectId = tasksRoute.startsWith("project/") ? tasksRoute.slice(8) : undefined;
 
@@ -131,7 +134,7 @@ function Shell() {
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
   const search = () => {
-    if (onCalendar || onTriage || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
+    if (onCalendar || onTriage || onFiles || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };
@@ -144,7 +147,7 @@ function Shell() {
       const key = e.key.toLowerCase();
       if (Date.now() - pendingG < 1200) {
         pendingG = 0;
-        const target = { t: "tasks/active", p: "tasks/projects", c: "calendar", i: "triage" }[key];
+        const target = { t: "tasks/active", p: "tasks/projects", c: "calendar", i: "triage", f: "files" }[key];
         if (target) (e.preventDefault(), go(target));
         return;
       }
@@ -179,13 +182,15 @@ function Shell() {
           <button className="btn btn-ghost" aria-label="Open navigation" onClick={() => setDrawer(true)}>
             ☰
           </button>
-          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : "Tasks"}</span>
+          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : onFiles ? "Files" : "Tasks"}</span>
         </header>
         <main className={styles.main}>
           {mailId ? (
             <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
           ) : onTriage ? (
             <TriagePage />
+          ) : onFiles ? (
+            <FilesPage path={folderOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p))} />
           ) : onCalendar ? (
             <CalendarApp hidden={hidden} openEventId={openEventId} onOpened={clearOpenEvent} />
           ) : (

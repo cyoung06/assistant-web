@@ -18,8 +18,10 @@ export function DropToTriage() {
   const depth = useRef(0);
 
   useEffect(() => {
+    // Pages that take drops themselves (the drive's files) are marked data-own-drop.
+    const own = (e: DragEvent) => e.target instanceof Element && e.target.closest("[data-own-drop]") !== null;
     const enter = (e: DragEvent) => {
-      if (!fromOutside(e)) return;
+      if (!fromOutside(e) || own(e)) return;
       depth.current++;
       setOver(true);
     };
@@ -29,7 +31,7 @@ export function DropToTriage() {
       if (depth.current === 0) setOver(false);
     };
     const dragOver = (e: DragEvent) => {
-      if (!fromOutside(e)) return;
+      if (!fromOutside(e) || own(e)) { if (own(e)) { depth.current = 0; setOver(false); } return; }
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     };

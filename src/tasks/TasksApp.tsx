@@ -7,6 +7,7 @@ import { InitiativePage, InitiativePicker, InitiativesPage, sortInitiatives, Sta
 import { closedGroup, groupTasks, GROUPINGS, ORDERINGS, type Grouping, type Ordering } from "./model";
 import { PROJECT_STATES, ProjectRow } from "./ProjectRow";
 import { ProjectSchedule } from "./ProjectSchedule";
+import { ProjectFiles } from "../files/ProjectFiles";
 import { TaskList } from "./TaskList";
 import styles from "./TasksApp.module.css";
 
@@ -319,6 +320,7 @@ function ProjectHeader({ project: p, back, openInitiative }: { project: Project 
         )}
       </div>
       <ProjectSchedule projectId={p.id} projectName={p.name} />
+      <ProjectFiles projectId={p.id} />
     </>
   );
 }

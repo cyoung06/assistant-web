@@ -1,0 +1,35 @@
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px 10px;
+  font-size: var(--text-sm);
+}
+.title {
+  margin-right: 4px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.title:hover {
+  text-decoration: underline;
+}
+.chip {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.chip:hover {
+  background: var(--surface-2);
+}
+.empty,
+.more {
+  color: var(--text-3);
+}

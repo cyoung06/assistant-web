@@ -74,6 +74,7 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
           />
         ))}
 
+        <Link icon={<FilesIcon />} label="Files" active={hash === "files" || hash.startsWith("files/")} onClick={() => go("files")} />
         <Link icon={<CalendarIcon />} label="Calendar" active={onCalendar} onClick={() => go("calendar")} />
         {onCalendar && (
           <div className={styles.toggles}>
@@ -131,6 +132,7 @@ const TasksIcon = () => svg(<><circle cx="8" cy="8" r="6" /><path d="M5.5 8.2 7.
 const ProjectsIcon = () => svg(<><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12M6 6v7.5" /></>);
 const TriageIcon = () => svg(<><path d="M2 9.5h3l1.2 2h3.6l1.2-2h3" /><path d="M2 9.5 3.8 3.5h8.4L14 9.5v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" /></>);
 const InitiativesIcon = () => svg(<><path d="M3 14V2.5" /><path d="M3 3h8.5l-1.8 2.7L11.5 8.5H3" /></>);
+const FilesIcon = () => svg(<path d="M2 4.5a1 1 0 0 1 1-1h3.2l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />);
 const CalendarIcon = () => svg(<><rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /></>);
 const SearchIcon = () => svg(<><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3.5 3.5" /></>);
 const PenIcon = () => svg(<><path d="M10.5 2.5 13.5 5.5 6 13H3v-3z" /><path d="m9 4 3 3" /></>);
