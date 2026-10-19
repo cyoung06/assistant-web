@@ -7,6 +7,7 @@ import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
 import { FOCUS_SEARCH, TasksApp } from "./tasks/TasksApp";
+import { DropToTriage } from "./triage/DropToTriage";
 import { TriagePage } from "./triage/TriagePage";
 import styles from "./App.module.css";
 
@@ -192,6 +193,7 @@ function Shell() {
           )}
         </main>
       </div>
+      <DropToTriage />
       {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}
       {shortcutsOpen && <Shortcuts onClose={() => setShortcutsOpen(false)} />}
     </div>
