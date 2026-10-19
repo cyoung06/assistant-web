@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../api/client";
 import { useEffect, useRef, useState } from "react";
-import { useChatGptAccount, useChatGptMutations, useFeed, useGitHubAccount, useGitHubMutations, useMailAccount, useMailMutations, usePublicTokenMutations, usePublicTokens, useRotateFeed, useSources, useSyncSource } from "../api/sources";
+import { useChatGptAccount, useChatGptMutations, useFeed, useGitHubAccount, useMailAccount, useMailMutations, usePublicTokenMutations, usePublicTokens, useRotateFeed, useSources, useSyncSource } from "../api/sources";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -251,49 +251,34 @@ function ChatGpt() {
   );
 }
 
-/** GitHub, for referencing repos, issues and PRs with @ (a pasted link is named without it too). */
+/** GitHub, through the GitHub App: @ references to repos, issues and PRs where it's installed. */
 function GitHub() {
   const account = useGitHubAccount();
-  const { connect, disconnect } = useGitHubMutations();
-  const [token, setToken] = useState("");
   const a = account.data;
   if (!a) return null;
+  const installed = a.installations ?? [];
   return (
     <section className={styles.feed}>
       <h3>GitHub</h3>
-      <p className={styles.hint}>Type @ to reference your repos, issues and pull requests; pasted GitHub links are named with their state.</p>
-      {connect.error && <p className={styles.error}>{connect.error.message}</p>}
-      {a.connected ? (
+      <p className={styles.hint}>Type @ to reference repos, issues and pull requests; pasted GitHub links are named with their state.</p>
+      {a.error && <p className={styles.error}>{a.error}</p>}
+      {!a.configured ? (
+        <p className={styles.meta}>Not set up on the server yet (GitHub App ID and key).</p>
+      ) : (
         <div className={styles.codeRow}>
           <span className={styles.meta}>
-            Connected as <strong>{a.login}</strong>
+            {installed.length ? (
+              <>
+                Installed on <strong>{installed.join(", ")}</strong>
+              </>
+            ) : (
+              "Not installed on any account yet."
+            )}
           </span>
-          <button className="btn btn-ghost" onClick={() => disconnect.mutate()}>
-            Disconnect
-          </button>
+          <a className="btn btn-ghost" href={a.installUrl} target="_blank" rel="noreferrer">
+            Add an account or org
+          </a>
         </div>
-      ) : (
-        <>
-          <p className={styles.meta}>
-            Make a{" "}
-            <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
-              fine-grained token
-            </a>{" "}
-            with read-only access to Metadata, Issues and Pull requests (all repositories), and paste it here.
-          </p>
-          <form
-            className={styles.feedActions}
-            onSubmit={(e) => {
-              e.preventDefault();
-              connect.mutate(token.trim(), { onSuccess: () => setToken("") });
-            }}
-          >
-            <input id="github-token" className="input" type="password" placeholder="github_pat_…" value={token} onChange={(e) => setToken(e.target.value)} aria-label="GitHub token" />
-            <button className="btn btn-primary" disabled={!token.trim() || connect.isPending}>
-              {connect.isPending ? "Checking…" : "Connect"}
-            </button>
-          </form>
-        </>
       )}
     </section>
   );
