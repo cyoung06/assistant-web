@@ -32,6 +32,15 @@ export async function upload(file: File): Promise<string> {
 
 export function useTriageMutations() {
   const qc = useQueryClient();
+  /** Changes the cached list right away (clicks feel instant); returns a function that puts it back. */
+  const locally = async (change: (inputs: TriageInput[]) => TriageInput[]) => {
+    await qc.cancelQueries({ queryKey: TRIAGE });
+    const previous = qc.getQueryData<TriageInput[]>(TRIAGE);
+    if (previous) qc.setQueryData<TriageInput[]>(TRIAGE, change(previous));
+    return () => qc.setQueryData(TRIAGE, previous);
+  };
+  const decide = (id: string, status: string) =>
+    locally((list) => list.map((i) => ({ ...i, items: i.items.map((x) => (x.id === id ? { ...x, status } : x)) })));
   const done = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: TRIAGE }),
@@ -48,10 +57,14 @@ export function useTriageMutations() {
     accept: useMutation({
       mutationFn: async ({ id, proposal }: { id: string; proposal?: Proposal }) =>
         unwrap(await api.POST("/api/v1/triage/items/{id}/accept", { params: { path: { id } }, body: proposal })),
+      onMutate: ({ id }) => decide(id, "accepted"),
+      onError: (_e, _v, restore) => restore?.(),
       onSettled: done,
     }),
     decline: useMutation({
       mutationFn: async (id: string) => unwrap(await api.POST("/api/v1/triage/items/{id}/decline", { params: { path: { id } } })),
+      onMutate: (id) => decide(id, "declined"),
+      onError: (_e, _v, restore) => restore?.(),
       onSettled: done,
     }),
     retry: useMutation({
@@ -60,6 +73,8 @@ export function useTriageMutations() {
     }),
     dismiss: useMutation({
       mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/triage/inputs/{id}", { params: { path: { id } } })),
+      onMutate: (id) => locally((list) => list.filter((i) => i.id !== id)),
+      onError: (_e, _v, restore) => restore?.(),
       onSettled: done,
     }),
   };
