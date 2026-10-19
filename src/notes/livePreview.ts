@@ -337,12 +337,20 @@ const preview = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-/** ⌘/Ctrl-click a link to open it ([open] gets its address, and the drive file it points to, if one). */
+/**
+ * ⌘/Ctrl-click a link to open it ([open] gets its address, and the drive file it points to, if
+ * one); with a finger or pen (no keys to hold) a tap on a shown link opens it.
+ */
 function linkClicks(open: OpenLink) {
+  let pointer = "mouse";
   return EditorView.domEventHandlers({
+    pointerdown(e) {
+      pointer = e.pointerType;
+      return false;
+    },
     mousedown(e, view) {
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-href]");
-      if (!el || !(e.metaKey || e.ctrlKey || view.state.readOnly)) return false;
+      if (!el || !(e.metaKey || e.ctrlKey || view.state.readOnly || pointer !== "mouse")) return false;
       const href = el.dataset.href ?? "";
       if (!href) return false;
       e.preventDefault();
