@@ -1,34 +1,39 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { fileUrl, kind, size, type DriveEntry } from "./api";
+import DOMPurify from "dompurify";
+import { Marked } from "marked";
+import { useMemo, useState } from "react";
+import { fileUrl, kind, parentOf, size, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
 
 /** Text files larger than this aren't previewed (download them instead). */
 const TEXT_LIMIT = 2 * 1024 * 1024;
 
+const isMarkdown = (name: string) => /\.(md|markdown)$/i.test(name);
+
+/** Markdown as HTML (sanitized), its relative links and images pointing at the drive files beside it. */
+function renderMarkdown(text: string, folder: string) {
+  const resolve = (href: string) => {
+    if (/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(href)) return href;
+    const parts = (folder + decodeURI(href)).split("/");
+    const out: string[] = [];
+    for (const p of parts) p === ".." ? out.pop() : p !== "." && out.push(p);
+    return fileUrl(out.join("/"));
+  };
+  const marked = new Marked({ gfm: true, walkTokens: (t) => void ((t.type === "link" || t.type === "image") && (t.href = resolve(t.href))) });
+  return DOMPurify.sanitize(marked.parse(text) as string);
+}
+
 /**
- * A file of the drive shown in the app: PDFs in the browser's viewer, images, video, audio and
- * text as themselves, anything else offered for download. ← and → go through the folder's files;
- * Escape goes back to the folder.
+ * A file of the drive shown in the app: PDFs in the browser's viewer, images (fitted; click for
+ * actual size), video, audio, text and code with line numbers, Markdown rendered (or as source);
+ * anything else offered for download.
  */
-export function FileViewer({ path, entry, files, go, close }: { path: string; entry?: DriveEntry; files: DriveEntry[]; go: (path: string) => void; close: () => void }) {
+export function FileViewer({ path, entry }: { path: string; entry?: DriveEntry }) {
   const name = path.split("/").pop() ?? path;
   const k = kind({ name });
-  const at = files.findIndex((f) => f.path === path);
-  const prev = at > 0 ? files[at - 1] : undefined;
-  const next = at >= 0 && at < files.length - 1 ? files[at + 1] : undefined;
   const url = fileUrl(path);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]")) return;
-      if (e.key === "Escape") close();
-      else if (e.key === "ArrowLeft" && prev) go(prev.path);
-      else if (e.key === "ArrowRight" && next) go(next.path);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [close, go, prev, next]);
+  const [actual, setActual] = useState(false);
+  const [source, setSource] = useState(false);
 
   const big = (entry?.size ?? 0) > TEXT_LIMIT;
   const text = useQuery({
@@ -40,35 +45,23 @@ export function FileViewer({ path, entry, files, go, close }: { path: string; en
       return res.text();
     },
   });
+  const md = isMarkdown(name) && !source;
+  const html = useMemo(() => (md && text.data !== undefined ? renderMarkdown(text.data, parentOf(path)) : ""), [md, text.data, path]);
 
   return (
-    <div className={styles.viewer} role="dialog" aria-label={name}>
+    <div className={styles.viewer}>
       <div className={styles.bar}>
-        <button className="btn btn-ghost" onClick={close} title="Back to the folder (Esc)">
-          ‹ Back
-        </button>
-        <span className={styles.name} title={name}>
-          {name}
-        </span>
-        {entry && <span className={styles.meta}>{size(entry.size)}</span>}
+        <span className={styles.meta}>{entry ? size(entry.size) : ""}</span>
         <span className={styles.spacer} />
-        {files.length > 1 && at >= 0 && (
-          <span className={styles.nav}>
-            <button className="btn btn-ghost" disabled={!prev} onClick={() => prev && go(prev.path)} title={prev ? `${prev.name} (←)` : undefined} aria-label="Previous file">
-              ←
-            </button>
-            <span className={styles.meta}>
-              {at + 1} / {files.length}
-            </span>
-            <button className="btn btn-ghost" disabled={!next} onClick={() => next && go(next.path)} title={next ? `${next.name} (→)` : undefined} aria-label="Next file">
-              →
-            </button>
-          </span>
+        {isMarkdown(name) && (
+          <button className="btn btn-ghost" onClick={() => setSource((s) => !s)}>
+            {source ? "Rendered" : "Source"}
+          </button>
         )}
         <a className="btn btn-ghost" href={url} target="_blank" rel="noreferrer">
           Open in tab
         </a>
-        <a className="btn" href={url} download={name}>
+        <a className="btn btn-ghost" href={url} download={name}>
           Download
         </a>
       </div>
@@ -76,18 +69,22 @@ export function FileViewer({ path, entry, files, go, close }: { path: string; en
         {k === "pdf" ? (
           <iframe key={path} className={styles.frame} src={url} title={name} />
         ) : k === "image" ? (
-          <img key={path} className={styles.image} src={url} alt={name} />
+          <div className={`${styles.imageBox} ${actual ? styles.actual : ""}`} onClick={() => setActual((a) => !a)} title={actual ? "Fit to the pane" : "Actual size"}>
+            <img key={path} className={styles.image} src={url} alt={name} />
+          </div>
         ) : k === "video" ? (
-          <video key={path} className={styles.media} src={url} controls autoPlay />
+          <video key={path} className={styles.media} src={url} controls />
         ) : k === "audio" ? (
-          <audio key={path} src={url} controls autoPlay />
+          <audio key={path} src={url} controls />
         ) : k === "text" && !big ? (
           text.isPending ? (
             <p className={styles.note}>Loading…</p>
           ) : text.isError ? (
             <p className={styles.note}>Couldn't open this file.</p>
+          ) : md ? (
+            <div className={`markdown ${styles.markdown}`} dangerouslySetInnerHTML={{ __html: html }} />
           ) : (
-            <pre className={styles.text}>{text.data}</pre>
+            <Code text={text.data} />
           )
         ) : (
           <div className={styles.none}>
@@ -99,6 +96,23 @@ export function FileViewer({ path, entry, files, go, close }: { path: string; en
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Text with line numbers (the numbers aren't selected with the text). */
+function Code({ text }: { text: string }) {
+  const lines = useMemo(() => text.replace(/\n$/, "").split("\n"), [text]);
+  return (
+    <div className={styles.code} style={{ ["--digits" as string]: String(lines.length).length }}>
+      {lines.map((line, i) => (
+        <div key={i} className={styles.line}>
+          <span className={styles.number} aria-hidden>
+            {i + 1}
+          </span>
+          <span className={styles.text}>{line || " "}</span>
+        </div>
+      ))}
     </div>
   );
 }

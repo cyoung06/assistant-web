@@ -119,3 +119,32 @@ export const readOnly = (path: string) => {
   const parts = path.split("/");
   return parts.length >= 3 && parts[0] === "Projects" && parts[2] === "Course files";
 };
+
+/** Projects/ and each project's own folder: they follow the projects (renamed by renaming the project). */
+export const isFixed = (path: string) => path === "Projects/" || (path.startsWith("Projects/") && path.split("/").filter(Boolean).length <= 2);
+
+/** A folder new things can go into: not the drive's top, Projects/ itself, or Course files. */
+export const writable = (folder: string) => folder !== "" && folder !== "Projects/" && !readOnly(folder);
+
+/** The app's own address of a drive path (a folder shown in Files, or a file in its viewer). */
+export const appUrl = (path: string) => "/" + filesRoute(path.startsWith("Projects/") ? path.slice("Projects/".length) : path);
+
+/** A folder as an entry, for folders known only by path (the top of a tree, the folder shown). */
+export const folderEntry = (path: string, name?: string): DriveEntry => ({
+  path,
+  name: name ?? path.split("/").filter(Boolean).pop() ?? "",
+  folder: true,
+  size: 0,
+});
+
+/** [name] in [folder], numbered ("Notes (2).md") if something there is already called that. */
+export async function freeName(folder: string, name: string) {
+  const res = await api.GET("/api/v1/drive/folder", { params: { query: { path: folder } } });
+  const taken = new Set((res.data?.entries ?? []).map((e) => e.name));
+  const dot = name.lastIndexOf(".");
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  let n = 2;
+  let free = name;
+  while (taken.has(free)) free = `${stem} (${n++})${ext}`;
+  return free;
+}
