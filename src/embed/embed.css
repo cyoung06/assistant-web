@@ -1,0 +1,18 @@
+/* The editor alone, filling the native app's web view, in the system's own typeface. */
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--surface);
+  overscroll-behavior: none;
+}
+#root {
+  display: flex;
+  flex-direction: column;
+}

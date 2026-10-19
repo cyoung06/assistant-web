@@ -4,7 +4,6 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import DOMPurify from "dompurify";
 import katex from "katex";
 import { Marked } from "marked";
-import { fileUrl } from "../files/api";
 import { mathRanges, resolveRelative, toggledTask } from "./md";
 
 /**
@@ -22,6 +21,9 @@ const focused = StateField.define<boolean>({
 
 /** The note's folder, for its relative links and images. */
 export const noteFolder = StateField.define<string>({ create: () => "", update: (v) => v });
+
+/** Where the note's drive images are read from. */
+const imageSource = StateField.define<ImageSource | null>({ create: () => null, update: (v) => v });
 
 const CODE = new Set(["InlineCode", "FencedCode", "CodeBlock", "CodeText", "CodeMark", "CodeInfo", "HTMLBlock", "Comment"]);
 
@@ -48,20 +50,27 @@ class MathWidget extends WidgetType {
   }
 }
 
+/** Where a note's images come from: a drive path to something an <img> can show (the host's; maybe later). */
+export type ImageSource = (path: string) => string | Promise<string>;
+
 class ImageWidget extends WidgetType {
   constructor(
+    /** A web address, or (with [source]) a drive path. */
     readonly src: string,
     readonly alt: string,
+    readonly source: ImageSource | null,
   ) {
     super();
   }
   eq(o: ImageWidget) {
-    return o.src === this.src && o.alt === this.alt;
+    return o.src === this.src && o.alt === this.alt && o.source === this.source;
   }
   toDOM(view: EditorView) {
     const img = document.createElement("img");
     img.className = "cm-md-image";
-    img.src = this.src;
+    const src = this.source ? this.source(this.src) : this.src;
+    if (typeof src === "string") img.src = src;
+    else void src.then((s) => (img.src = s)).catch(() => (img.alt = `${this.alt || this.src} (couldn't load)`));
     img.alt = this.alt;
     img.title = this.alt;
     editOnClick(img, view, 2);
@@ -252,7 +261,7 @@ function build(state: EditorState): DecorationSet {
           const marks = node.node.getChildren("LinkMark");
           const alt = marks.length >= 2 ? state.sliceDoc(marks[0]!.to, marks[1]!.from) : "";
           const path = resolveRelative(folder, src);
-          out.push(Decoration.replace({ widget: new ImageWidget(path === null ? src : fileUrl(path), alt) }).range(from, to));
+          out.push(Decoration.replace({ widget: path === null ? new ImageWidget(src, alt, null) : new ImageWidget(path, alt, state.field(imageSource)) }).range(from, to));
           replacedTo = to;
           return false;
         }
@@ -328,8 +337,8 @@ const preview = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-/** ⌘/Ctrl-click a link to open it: web addresses in a new tab, drive files ([openPath]) in the app. */
-function linkClicks(openPath: (path: string) => void) {
+/** ⌘/Ctrl-click a link to open it ([open] gets its address, and the drive file it points to, if one). */
+function linkClicks(open: OpenLink) {
   return EditorView.domEventHandlers({
     mousedown(e, view) {
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-href]");
@@ -338,8 +347,7 @@ function linkClicks(openPath: (path: string) => void) {
       if (!href) return false;
       e.preventDefault();
       const path = resolveRelative(view.state.field(noteFolder), href.replace(/^<|>$/g, ""));
-      if (path === null) window.open(href, "_blank", "noopener");
-      else openPath(path);
+      open(href, path);
       return true;
     },
     focus(_e, view) {
@@ -353,5 +361,14 @@ function linkClicks(openPath: (path: string) => void) {
   });
 }
 
-/** The live preview, for a note in [folder]. */
-export const livePreview = (folder: string, openPath: (path: string) => void) => [noteFolder.init(() => folder), focused, preview, linkClicks(openPath)];
+/** Opens a link: a web address, or (with [path]) a drive file. */
+export type OpenLink = (href: string, path: string | null) => void;
+
+/** The live preview, for a note in [folder]; its drive images come from [images]. */
+export const livePreview = (folder: string, open: OpenLink, images: ImageSource) => [
+  noteFolder.init(() => folder),
+  imageSource.init(() => images),
+  focused,
+  preview,
+  linkClicks(open),
+];

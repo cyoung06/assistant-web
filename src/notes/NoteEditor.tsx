@@ -9,15 +9,14 @@ import { drawSelection, EditorView, keymap, placeholder, type Command } from "@c
 import { tags as t } from "@lezer/highlight";
 import { useQueryClient } from "@tanstack/react-query";
 import "katex/dist/katex.min.css";
-import { useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
-import { fileUrl, freeName, parentOf, readOnly, size, type DriveEntry } from "../files/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
 import { freshNotes } from "./fresh";
 import { livePreview } from "./livePreview";
-import { applyTemplate, pastedName, relativeTo, SLASH_ITEMS, toggleWrap } from "./md";
+import { applyTemplate, SLASH_ITEMS, toggleWrap } from "./md";
 import styles from "./NoteEditor.module.css";
-
-type Status = "loading" | "saved" | "unsaved" | "saving" | "error" | "conflict" | "readonly";
+import type { NoteStatus as Status, NoteStore, Version } from "./store";
+import { webStore } from "./webStore";
 
 const STATUS: Record<Status, string> = {
   loading: "Opening…",
@@ -143,39 +142,54 @@ const theme = EditorView.theme({
 /** Changes that aren't typing (another version loaded): not saved back. */
 const loaded = Annotation.define<boolean>();
 
-/** What the editor needs from the server: the file's version (an ETag, or its modified time from the folder listing). */
-type Version = { etag: string | null; modified: string | null };
-
-async function listed(path: string): Promise<(DriveEntry & { etag?: string | null }) | undefined> {
-  const res = await api.GET("/api/v1/drive/folder", { params: { query: { path: parentOf(path) } } });
-  return res.data?.entries.find((e) => e.path === path);
-}
-
-/** A file as written now: its text and version. */
-async function read(path: string): Promise<{ text: string; version: Version }> {
-  const res = await fetch(fileUrl(path), { cache: "no-store" });
-  if (!res.ok) throw new Error(`Couldn't open the note (${res.status})`);
-  const text = await res.text();
-  const etag = res.headers.get("ETag");
-  return { text, version: { etag, modified: etag ? null : ((await listed(path))?.modified ?? null) } };
-}
-
 /**
  * A Markdown note (with $…$ and $$…$$ math) from the drive, edited in place: it reads as rendered
  * except where the cursor is, and saves itself a second after typing stops (and on leaving). If the
  * file changed elsewhere meanwhile, nothing is overwritten: you choose. Course files only read.
  */
 export default function NoteEditor({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
-  const host = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
-  const locked = readOnly(path);
+  const openRef = useRef(openPath);
+  openRef.current = openPath;
+  const store = useMemo(() => webStore(qc, (p) => openRef.current(p)), [qc]);
+  return <Note path={path} store={store} locked={readOnly(path)} entry={entry} />;
+}
+
+/** What a host can do to an open note. */
+export type NoteControls = { flush: () => Promise<void>; setSource: (on: boolean) => void };
+
+/**
+ * A note, read and written through [store]. [embedded] (in a native app) leaves out the bar: the
+ * host shows the status (told through the store) and its own actions; [onControls] gets what it
+ * can do to the note. [initial] is the note as the host already has it (not read again).
+ */
+export function Note({
+  path,
+  store,
+  locked,
+  entry,
+  embedded = false,
+  initial,
+  onControls,
+}: {
+  path: string;
+  store: NoteStore;
+  locked: boolean;
+  entry?: DriveEntry;
+  embedded?: boolean;
+  initial?: { text: string; version: Version };
+  onControls?: (controls: NoteControls) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const controls = useRef<{ setSource: (on: boolean) => void; retry: () => void; overwrite: () => void; loadTheirs: () => void; saveCopy: () => void } | null>(null);
-  const openRef = useRef(openPath);
-  openRef.current = openPath;
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+  const onControlsRef = useRef(onControls);
+  onControlsRef.current = onControls;
 
   useEffect(() => {
     let alive = true;
@@ -187,9 +201,11 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
     let conflicted = false;
     const folder = parentOf(path);
     const mode = new Compartment();
-    const set = (s: Status) => alive && setStatus(s);
-
-    const refreshListing = () => qc.invalidateQueries({ queryKey: ["drive", "folder", folder] });
+    const set = (s: Status, message?: string) => {
+      if (!alive) return;
+      setStatus(s);
+      store.status?.(s, message);
+    };
 
     /** Writes the note; with [force], even over a version written elsewhere. */
     const save = async (force = false): Promise<void> => {
@@ -200,28 +216,13 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
       set("saving");
       saving = (async () => {
         try {
-          const headers: Record<string, string> = { "Content-Type": "text/markdown; charset=utf-8" };
-          // A compressing proxy on the way marks ETags weak ("W/"); the file's own is the strong one.
-          if (!force && version.etag) headers["If-Match"] = version.etag.replace(/^W\//, "");
-          // Without ETags (an older server), the folder listing's modified time tells.
-          if (!force && !version.etag && version.modified) {
-            const now = (await listed(path))?.modified ?? null;
-            if (now && now !== version.modified) throw Object.assign(new Error("conflict"), { conflict: true });
-          }
-          // An empty body may be refused by older servers; an empty note is a newline.
-          const res = await fetch(fileUrl(path), { method: "PUT", headers, body: text || "\n", keepalive: text.length < 60_000 });
-          if (res.status === 412) throw Object.assign(new Error("conflict"), { conflict: true });
-          if (!res.ok) throw new Error((await res.json().catch(() => null))?.detail ?? `Failed (${res.status})`);
-          const etag = res.headers.get("ETag");
-          if (etag) version = { etag, modified: null };
-          else {
-            const e = await listed(path);
-            version = { etag: e?.etag ?? null, modified: e?.etag ? null : (e?.modified ?? null) };
-          }
+          const done = await store.write(path, text, version, force);
+          if ("conflict" in done) throw Object.assign(new Error("conflict"), { conflict: true });
+          version = done.version;
           conflicted = false;
           setError(null);
           set(dirty ? "unsaved" : "saved");
-          void refreshListing();
+          store.saved?.(path);
         } catch (e) {
           dirty = true;
           if ((e as { conflict?: boolean }).conflict) {
@@ -229,7 +230,7 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
             set("conflict");
           } else {
             setError((e as Error).message);
-            set("error");
+            set("error", (e as Error).message);
           }
         } finally {
           saving = null;
@@ -252,38 +253,28 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
 
     /** Coming back to the page: a note not being edited shows what's there now. */
     const recheck = async () => {
-      if (!view || dirty || saving || conflicted) return;
+      if (!view || dirty || saving || conflicted || !store.changed) return;
       try {
-        if (version.etag) {
-          const res = await fetch(fileUrl(path), { cache: "no-store", headers: { "If-None-Match": version.etag.replace(/^W\//, "") } });
-          if (res.status === 304 || !res.ok) return;
-          const etag = res.headers.get("ETag");
-          if (etag?.replace(/^W\//, "") === version.etag.replace(/^W\//, "")) return;
-          const text = await res.text();
-          if (!dirty && text !== view.state.doc.toString()) replace(text);
-          version = { etag, modified: null };
-        } else if (version.modified) {
-          const now = (await listed(path))?.modified ?? null;
-          if (!now || now === version.modified) return;
-          const fresh = await read(path);
-          if (!dirty) (replace(fresh.text), (version = fresh.version));
-        }
+        const fresh = await store.changed(path, version);
+        if (fresh) newer(fresh);
       } catch {
         // Offline for a moment: checked again next time.
       }
+    };
+    /** A newer version (found, or told by the host): shown if nothing's being edited. */
+    const newer = (fresh: { text: string; version: Version }) => {
+      if (!view || dirty || saving || conflicted) return;
+      if (fresh.text !== view.state.doc.toString()) replace(fresh.text);
+      version = fresh.version;
     };
 
     /** Uploads images (pasted or dropped) next to the note, in attachments/, and links them at [at]. */
     const insertImages = async (files: File[], at: number) => {
       if (!view || locked) return;
-      const dir = folder + "attachments/";
       const links: string[] = [];
       for (const f of files) {
         try {
-          const name = await freeName(dir, pastedName(f));
-          const res = await fetch(fileUrl(dir + name), { method: "PUT", body: f, headers: { "Content-Type": f.type || "application/octet-stream" } });
-          if (!res.ok) throw new Error(`Couldn't upload ${name} (${res.status})`);
-          links.push(`![](${relativeTo(folder, dir + name)})`);
+          links.push(`![](${await store.uploadImage(path, f)})`);
         } catch (e) {
           setError((e as Error).message);
         }
@@ -293,13 +284,13 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
       const lineStart = view.state.doc.lineAt(pos).from === pos;
       const insert = (lineStart ? "" : "\n") + links.join("\n") + "\n";
       view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
-      void qc.invalidateQueries({ queryKey: ["drive", "folder", dir] });
     };
     const imagesIn = (data: DataTransfer | null) => [...(data?.files ?? [])].filter((f) => f.type.startsWith("image/"));
 
-    const live = (): Extension => livePreview(folder, (p) => openRef.current(p));
+    const live = (): Extension => livePreview(folder, (href, p) => store.openLink(href, p), (p) => store.imageSrc(p));
 
-    read(path)
+    const given = initialRef.current;
+    (given ? Promise.resolve(given) : store.read(path))
       .then(({ text, version: v }) => {
         if (!alive || !host.current) return;
         version = v;
@@ -377,15 +368,16 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
       })
       .catch((e: Error) => {
         setError(e.message);
-        set("error");
+        set("error", e.message);
       });
+    const unwatch = store.watch?.(newer);
 
     controls.current = {
       setSource: (on) => view?.dispatch({ effects: mode.reconfigure(on ? [] : live()) }),
       retry: () => void save(),
       overwrite: () => void save(true),
       loadTheirs: () =>
-        void read(path).then((fresh) => {
+        void store.read(path).then((fresh) => {
           replace(fresh.text);
           version = fresh.version;
           conflicted = false;
@@ -394,19 +386,29 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
       saveCopy: () =>
         void (async () => {
           if (!view) return;
-          const name = path.split("/").pop()!.replace(/(\.[^.]+)?$/, " (my copy)$1");
-          const free = await freeName(folder, name);
-          const res = await fetch(fileUrl(folder + free), { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: view.state.doc.toString() || "\n" });
-          if (!res.ok) return setError(`Couldn't save the copy (${res.status})`);
-          setCopied(free);
-          const fresh = await read(path);
+          try {
+            setCopied(await store.saveCopy(path, view.state.doc.toString()));
+          } catch (e) {
+            return setError((e as Error).message);
+          }
+          const fresh = await store.read(path);
           replace(fresh.text);
           version = fresh.version;
           conflicted = false;
           set("saved");
-          void refreshListing();
+          store.saved?.(path);
         })(),
     };
+    onControlsRef.current?.({
+      flush: async () => {
+        window.clearTimeout(timer);
+        await save();
+      },
+      setSource: (on) => {
+        controls.current?.setSource(on);
+        setSource(on);
+      },
+    });
 
     const onFocus = () => void recheck();
     const onHide = () => document.visibilityState === "hidden" && void save();
@@ -420,34 +422,37 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onUnload);
+      unwatch?.();
       // Leaving the note: what's unsaved goes now.
       void save();
       view?.destroy();
     };
-  }, [path, locked, qc]);
+  }, [path, locked, store]);
 
   return (
     <div className={styles.note}>
-      <div className={styles.bar}>
-        <span className={`${styles.status} ${status === "error" || status === "conflict" ? styles.bad : ""}`} title={error ?? undefined}>
-          {STATUS[status]}
-        </span>
-        {entry && <span className={styles.meta}>{size(entry.size)}</span>}
-        <span className={styles.spacer} />
-        <button
-          className="btn btn-ghost"
-          onClick={() => {
-            controls.current?.setSource(!source);
-            setSource((s) => !s);
-          }}
-          title={source ? "Show it rendered as you write" : "Show the Markdown as written"}
-        >
-          {source ? "Live preview" : "Source"}
-        </button>
-        <a className="btn btn-ghost" href={fileUrl(path)} download={path.split("/").pop()}>
-          Download
-        </a>
-      </div>
+      {!embedded && (
+        <div className={styles.bar}>
+          <span className={`${styles.status} ${status === "error" || status === "conflict" ? styles.bad : ""}`} title={error ?? undefined}>
+            {STATUS[status]}
+          </span>
+          {entry && <span className={styles.meta}>{size(entry.size)}</span>}
+          <span className={styles.spacer} />
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              controls.current?.setSource(!source);
+              setSource((s) => !s);
+            }}
+            title={source ? "Show it rendered as you write" : "Show the Markdown as written"}
+          >
+            {source ? "Live preview" : "Source"}
+          </button>
+          <a className="btn btn-ghost" href={fileUrl(path)} download={path.split("/").pop()}>
+            Download
+          </a>
+        </div>
+      )}
       {status === "conflict" && (
         <div className={styles.banner} role="alert">
           <span>This note was changed somewhere else since you opened it.</span>
@@ -475,7 +480,9 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
           </button>
         </div>
       )}
-      {locked && <div className={styles.banner}>From PLMS, kept as it is there. Copy it out of Course files to write in it.</div>}
+      {locked && (
+        <div className={styles.banner}>{readOnly(path) ? "From PLMS, kept as it is there. Copy it out of Course files to write in it." : "Read-only."}</div>
+      )}
       <div ref={host} className={styles.editor} />
     </div>
   );
