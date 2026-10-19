@@ -13,7 +13,7 @@ const marked = new Marked({
   renderer: {
     link({ href, tokens }) {
       const text = this.parser.parseInline(tokens);
-      const target = isAppLink(href) ? "" : ` target="_blank" rel="noreferrer"`;
+      const target = isAppLink(href) || href.startsWith("plms:") ? "" : ` target="_blank" rel="noreferrer"`;
       return `<a class="ref" data-kind="${kindOf(href)}" href="${escapeAttr(href)}"${target}>${text}</a>`;
     },
   },
@@ -21,7 +21,8 @@ const marked = new Marked({
 
 function render(markdown: string, inline: boolean): string {
   const html = inline ? (marked.parseInline(markdown) as string) : (marked.parse(markdown) as string);
-  return DOMPurify.sanitize(html, { ADD_ATTR: ["target"] });
+  // DOMPurify's default list of link schemes, plus mid: (mail) and plms:.
+  return DOMPurify.sanitize(html, { ADD_ATTR: ["target"], ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|mid|plms):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i });
 }
 
 /** Markdown text (descriptions, notes) with references as chips. */

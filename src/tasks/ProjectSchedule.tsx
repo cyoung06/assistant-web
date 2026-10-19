@@ -49,7 +49,7 @@ export function ProjectSchedule({ projectId, projectName }: { projectId: string;
   return (
     <div className={styles.schedule}>
       {schedule.recurring.map((r) => (
-        <a key={r.eventId} className={styles.scheduleLine} href={`#event/${r.eventId}`} title="Open the event">
+        <a key={r.eventId} className={styles.scheduleLine} href={`/event/${encodeURIComponent(r.eventId)}`} title="Open the event">
           {plainText(r.title) !== projectName && <span>{plainText(r.title)} · </span>}
           {scheduleLine(r)}
         </a>
@@ -58,7 +58,7 @@ export function ProjectSchedule({ projectId, projectName }: { projectId: string;
         <ul className={styles.upcoming} aria-label="Upcoming">
           {items.map((i) => (
             <li key={i.key}>
-              <a href={`#event/${i.eventId}`} className={i.skipped ? styles.skippedItem : undefined}>
+              <a href={`/event/${encodeURIComponent(i.eventId)}`} className={i.skipped ? styles.skippedItem : undefined}>
                 <span className={styles.upDate}>{dayLabel(i.date)}</span>
                 <span className={styles.upTime}>{i.time}</span>
                 <span className={styles.upTitle}>{i.title}</span>

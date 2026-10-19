@@ -22,7 +22,7 @@ export type View = (typeof VIEWS)[number]["id"];
 export const FOCUS_SEARCH = "tasks:focus-search";
 
 /**
- * The Tasks sub-app. [route] is what follows "#tasks/": a view, "projects", "project/<id>",
+ * The Tasks sub-app. [route] is what follows "/tasks/": a view, "projects", "project/<id>",
  * "initiatives" or "initiative/<id>".
  */
 export function TasksApp({ route, go }: { route: string; go: (route: string) => void }) {

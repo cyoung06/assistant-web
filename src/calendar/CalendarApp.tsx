@@ -25,7 +25,7 @@ export function CalendarApp({ hidden, openEventId, onOpened }: { hidden: string[
   const [range, setRange] = useState({ from: "", to: "" });
   const [dialog, setDialog] = useState<EventTarget | null>(null);
 
-  // A link to an event (#event/<uid>) opens it here.
+  // A link to an event (/event/<uid>) opens it here.
   useEffect(() => {
     if (!openEventId) return;
     api.GET("/api/v1/events/{id}", { params: { path: { id: openEventId } } }).then(({ data }) => {

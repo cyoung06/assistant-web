@@ -1,15 +1,33 @@
-import { describe, expect, it } from "vitest";
-import { kindOf, plainText, refMarkdown, splitRefs } from "./kinds";
+import { describe, expect, it, vi } from "vitest";
+import { appRoute, kindOf, plainText, plmsWebUrl, refMarkdown, splitRefs } from "./kinds";
 
 describe("references", () => {
   it("knows what a link points to", () => {
+    expect(kindOf("https://assistant.example/task/0b3b")).toBe("task");
     expect(kindOf("https://assistant.example/#task/0b3b")).toBe("task");
+    expect(kindOf("mid:lab@postech.ac.kr")).toBe("mail");
+    expect(kindOf("plms:mod/ubfile/1")).toBe("plms_file");
+    expect(kindOf("plms:post/1/2")).toBe("plms_notice");
+    expect(kindOf("plms:mod/assign/7")).toBe("plms_assignment");
+    expect(kindOf("plms:course/3")).toBe("plms_course");
+    expect(kindOf("https://example.com/task/1")).toBe("task");
     expect(kindOf("https://assistant.example/#tasks/project/9")).toBe("project");
     expect(kindOf("https://assistant.example/#mail/lab%40postech.ac.kr")).toBe("mail");
     expect(kindOf("https://plms.postech.ac.kr/mod/ubfile/view.php?id=1")).toBe("plms_file");
     expect(kindOf("https://plms.postech.ac.kr/mod/ubboard/article.php?id=1&bwid=2")).toBe("plms_notice");
     expect(kindOf("https://plms.postech.ac.kr/mod/assign/view.php?id=7")).toBe("plms_assignment");
     expect(kindOf("https://example.com")).toBe("link");
+  });
+
+  it("opens our pages and mail in place, PLMS on its site", () => {
+    vi.stubGlobal("location", { origin: "https://assistant.example" });
+    expect(appRoute("https://assistant.example/task/0b3b")).toBe("task/0b3b");
+    expect(appRoute("https://assistant.example/#task/0b3b")).toBe("task/0b3b");
+    expect(appRoute("mid:lab@postech.ac.kr")).toBe("mail/lab%40postech.ac.kr");
+    expect(appRoute("https://example.com/task/1")).toBeNull();
+    expect(plmsWebUrl("plms:post/55/9")).toBe("https://plms.postech.ac.kr/mod/ubboard/article.php?id=55&bwid=9");
+    expect(plmsWebUrl("plms:mod/ubfile/101")).toBe("https://plms.postech.ac.kr/mod/ubfile/view.php?id=101");
+    vi.unstubAllGlobals();
   });
 
   it("turns links into text and parts", () => {

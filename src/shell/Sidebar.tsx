@@ -8,7 +8,7 @@ import { VIEWS } from "../tasks/TasksApp";
 import styles from "./Sidebar.module.css";
 
 interface Props {
-  /** The URL hash without "#", e.g. "tasks/active", "tasks/project/<id>", "calendar". */
+  /** The route (the path without its "/"), e.g. "tasks/active", "tasks/project/<id>", "calendar". */
   hash: string;
   go: (hash: string) => void;
   collapsed: boolean;

@@ -316,7 +316,7 @@ function MiniRow({ task, onOpen, onToggle }: { task: Task; onOpen: () => void; o
 
 /** Tasks and events that link to this task. */
 function Backlinks({ id }: { id: string }) {
-  const url = `${location.origin}/#task/${id}`;
+  const url = `${location.origin}/task/${id}`;
   const backlinks = useBacklinks(url);
   const list = backlinks.data ?? [];
   if (!list.length) return null;

@@ -6,10 +6,24 @@ import type { components } from "../api/schema";
 export type RefKind = components["schemas"]["Ref"]["kind"];
 export type Ref = components["schemas"]["Ref"];
 
-const APP = /#(task|tasks\/project|event|mail)\/[^\s)#?]+/;
+// The app's own things are its pages (`<origin>/task/<id>`; older text has `#task/<id>`). Mail
+// isn't ours: `mid:<Message-ID>` (RFC 2392). PLMS things are `plms:course/…`, `plms:mod/<module>/…`
+// or `plms:post/…`, independent of the site's URLs.
+const APP = /[/#](task|tasks\/project|event|mail)\/[^\s)#?]+/;
+
+export const PLMS_BASE = "https://plms.postech.ac.kr";
 
 export function kindOf(url: string): RefKind {
-  const app = APP.exec(url);
+  if (url.startsWith("mid:")) return "mail";
+  if (url.startsWith("plms:")) {
+    const [what, module] = url.slice(5).split("/");
+    if (what === "course") return "plms_course";
+    if (what === "post") return "plms_notice";
+    if (module === "ubfile" || module === "resource") return "plms_file";
+    if (module === "assign") return "plms_assignment";
+    return "plms_activity";
+  }
+  const app = /^(https?:|#|\/)/.test(url) ? APP.exec(url) : null;
   if (app) return ({ task: "task", "tasks/project": "project", event: "event", mail: "mail" } as const)[app[1] as "task"];
   if (/plms\.postech\.ac\.kr/.test(url)) {
     if (/\/mod\/(ubfile|resource)\//.test(url)) return "plms_file";
@@ -21,8 +35,33 @@ export function kindOf(url: string): RefKind {
   return "link";
 }
 
-/** A link to one of the app's own pages (opens in place rather than in a new tab). */
-export const isAppLink = (url: string) => APP.test(url) && (url.startsWith(location.origin) || url.startsWith("#"));
+/** PLMS's page for a `plms:` link. */
+export function plmsWebUrl(link: string): string | null {
+  const [what, a, b] = link.slice(5).split("/");
+  if (what === "course" && a) return `${PLMS_BASE}/course/view.php?id=${a}`;
+  if (what === "mod" && a && b) return `${PLMS_BASE}/mod/${a}/view.php?id=${b}`;
+  if (what === "post" && a && b) return `${PLMS_BASE}/mod/ubboard/article.php?id=${a}&bwid=${b}`;
+  return null;
+}
+
+/**
+ * Where in the app a link leads ("task/<id>", "mail/<id>", "tasks/active", …), or null when it
+ * leaves the app. Mail opens in the app's reader.
+ */
+export function appRoute(url: string): string | null {
+  if (url.startsWith("mid:")) return `mail/${encodeURIComponent(decodeURIComponent(url.slice(4)))}`;
+  let path: string;
+  if (url.startsWith("#")) path = url.slice(1);
+  else if (url.startsWith("/")) path = url.slice(1);
+  else if (url.startsWith(location.origin + "/")) path = url.slice(location.origin.length + 1);
+  else return null;
+  // Older links were fragments: "<origin>/#task/<id>".
+  if (path.startsWith("#")) path = path.slice(1);
+  return /^(tasks|task|event|mail|calendar)(\/|$)/.test(path) ? path : null;
+}
+
+/** A link that opens in place (one of the app's pages, or mail) rather than in a new tab. */
+export const isAppLink = (url: string) => appRoute(url) !== null;
 
 export const KIND_LABEL: Record<RefKind, string> = {
   task: "Task",
