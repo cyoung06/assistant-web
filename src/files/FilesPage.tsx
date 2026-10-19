@@ -20,6 +20,7 @@ import { Ask, ContextMenu, type MenuAction } from "./ContextMenu";
 import { Explorer, ICON, type Ops } from "./Explorer";
 import { FileViewer } from "./FileViewer";
 import { FolderView } from "./FolderView";
+import { freshNotes } from "../notes/fresh";
 import styles from "./FilesPage.module.css";
 
 let clipboard: Clip | null = null;
@@ -191,6 +192,17 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
             })(),
           ),
       }),
+    /** A note, made at once ("Untitled.md") and opened with its title selected to type over. */
+    newNote: (dest: string) =>
+      run(
+        (async () => {
+          const name = await freeName(dest, "Untitled.md");
+          const body = `# ${name.replace(/\.md$/, "")}\n\n`;
+          await upload.mutateAsync({ folder: dest, files: [new File([body], name, { type: "text/markdown" })] });
+          freshNotes.add(dest + name);
+          open({ path: dest + name, name, folder: false, size: body.length }, true);
+        })(),
+      ),
     upload: (dest: string) => ((uploadTo.current = dest), picker.current?.click()),
     remove: (e: DriveEntry) =>
       setAsking({
@@ -224,6 +236,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
       items.push(
         "-",
         { label: "New folder", hint: "⌘⇧N", run: () => actions.newFolder(dest) },
+        { label: "New note", run: () => actions.newNote(dest) },
         { label: "New file", run: () => actions.newFile(dest) },
         { label: "Upload here…", run: () => actions.upload(dest) },
       );
@@ -401,8 +414,8 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
             <button className={`btn ${styles.wide}`} onClick={() => actions.newFolder(path)}>
               New folder
             </button>
-            <button className={`btn ${styles.wide}`} onClick={() => actions.newFile(path)}>
-              New file
+            <button className={`btn ${styles.wide}`} onClick={() => actions.newNote(path)}>
+              New note
             </button>
           </>
         )}
@@ -478,7 +491,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
                 ))}
               </div>
             )}
-            {viewing && !entry?.folder ? <FileViewer key={viewing} path={viewing} entry={entry} /> : <FolderView folder={path} view={view} ops={ops} />}
+            {viewing && !entry?.folder ? <FileViewer key={viewing} path={viewing} entry={entry} openPath={(p) => open(known.get(p) ?? fileEntry(p), true)} /> : <FolderView folder={path} view={view} ops={ops} />}
           </section>
         )}
       </div>

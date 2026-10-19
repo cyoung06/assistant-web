@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { Marked } from "marked";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { fileUrl, kind, parentOf, size, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
+
+/** The note editor (CodeMirror and KaTeX), loaded when a note is first opened. */
+const NoteEditor = lazy(() => import("../notes/NoteEditor"));
 
 /** Text files larger than this aren't previewed (download them instead). */
 const TEXT_LIMIT = 2 * 1024 * 1024;
@@ -25,10 +28,23 @@ function renderMarkdown(text: string, folder: string) {
 
 /**
  * A file of the drive shown in the app: PDFs in the browser's viewer, images (fitted; click for
- * actual size), video, audio, text and code with line numbers, Markdown rendered (or as source);
- * anything else offered for download.
+ * actual size), video, audio, text and code with line numbers, notes (Markdown) in the note
+ * editor ([openPath] follows their links to drive files); anything else offered for download.
  */
-export function FileViewer({ path, entry }: { path: string; entry?: DriveEntry }) {
+export function FileViewer({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
+  const name = path.split("/").pop() ?? path;
+  // Notes open in the editor (rendered as they're written).
+  if (isMarkdown(name) && (entry?.size ?? 0) <= TEXT_LIMIT)
+    return (
+      <Suspense fallback={<p className={styles.note}>Opening…</p>}>
+        <NoteEditor path={path} entry={entry} openPath={openPath} />
+      </Suspense>
+    );
+  return <Viewer path={path} entry={entry} />;
+}
+
+/** Anything but a note, shown as itself. */
+function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
   const name = path.split("/").pop() ?? path;
   const k = kind({ name });
   const url = fileUrl(path);
