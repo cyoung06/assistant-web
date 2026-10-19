@@ -35,7 +35,14 @@ export function ProjectSchedule({ projectId, projectName }: { projectId: string;
       title: plainText(o.title),
       skipped: false,
     })),
-    ...schedule.skipped.map((s) => ({ key: `${s.eventId}:${s.date}`, eventId: s.eventId, date: s.date, time: "", title: `${plainText(s.title)} · skipped`, skipped: true })),
+    ...schedule.skipped.map((s) => ({
+      key: `${s.eventId}:${s.date}`,
+      eventId: s.eventId,
+      date: s.date,
+      time: s.start ? s.start.slice(0, 5) : "",
+      title: `${plainText(s.title)} · skipped`,
+      skipped: true,
+    })),
   ].sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
   if (schedule.recurring.length === 0 && items.length === 0) return null;
 

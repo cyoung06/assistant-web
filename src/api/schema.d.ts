@@ -995,6 +995,8 @@ export interface components {
             /** Format: date */
             date: string;
             eventId: string;
+            /** Format: time-local */
+            start?: string | null;
             title: string;
         };
         SourceStatus: {
