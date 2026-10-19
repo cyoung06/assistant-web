@@ -7,6 +7,7 @@ import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
 import { FOCUS_SEARCH, TasksApp } from "./tasks/TasksApp";
+import { TriagePage } from "./triage/TriagePage";
 import styles from "./App.module.css";
 
 /** The route: the URL path without its leading "/" ("tasks/active", "task/<id>", "calendar"). */
@@ -117,6 +118,7 @@ function Shell() {
   }, [navigate]);
 
   const mailId = hash.startsWith("mail/") ? decodeURIComponent(hash.slice(5)) : null;
+  const onTriage = hash === "triage";
   const onCalendar = hash.startsWith("calendar");
   const tasksRoute = hash.startsWith("tasks/") ? hash.slice(6) : "";
   const projectId = tasksRoute.startsWith("project/") ? tasksRoute.slice(8) : undefined;
@@ -128,7 +130,7 @@ function Shell() {
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
   const search = () => {
-    if (onCalendar || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
+    if (onCalendar || onTriage || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };
@@ -141,7 +143,7 @@ function Shell() {
       const key = e.key.toLowerCase();
       if (Date.now() - pendingG < 1200) {
         pendingG = 0;
-        const target = { t: "tasks/active", p: "tasks/projects", c: "calendar" }[key];
+        const target = { t: "tasks/active", p: "tasks/projects", c: "calendar", i: "triage" }[key];
         if (target) (e.preventDefault(), go(target));
         return;
       }
@@ -176,11 +178,13 @@ function Shell() {
           <button className="btn btn-ghost" aria-label="Open navigation" onClick={() => setDrawer(true)}>
             ☰
           </button>
-          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : "Tasks"}</span>
+          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : "Tasks"}</span>
         </header>
         <main className={styles.main}>
           {mailId ? (
             <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
+          ) : onTriage ? (
+            <TriagePage />
           ) : onCalendar ? (
             <CalendarApp hidden={hidden} openEventId={openEventId} onOpened={clearOpenEvent} />
           ) : (

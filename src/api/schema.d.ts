@@ -484,6 +484,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publicTriage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/refs": {
         parameters: {
             query?: never;
@@ -639,6 +655,102 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["unrelate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["triage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitTriage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/inputs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["dismissTriage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/inputs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retryTriage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/items/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptTriage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/triage/items/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["declineTriage"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -932,6 +1044,8 @@ export interface components {
             priority?: "none" | "urgent" | "high" | "medium" | "low";
             /** Format: uuid */
             projectId?: string | null;
+            /** Format: int64 */
+            sameAs?: number | null;
             /** Format: date-time */
             start?: string | null;
             /** Format: date */
@@ -1014,6 +1128,13 @@ export interface components {
             /** @enum {string} */
             type: "manual" | "plms" | "email" | "upload" | "ical";
         };
+        SubmitRequest: {
+            attachmentIds?: string[];
+            link?: string | null;
+            source?: string;
+            text?: string;
+            title?: string;
+        };
         SyncReport: {
             /** Format: int32 */
             completed?: number;
@@ -1081,6 +1202,31 @@ export interface components {
             /** Format: date-time */
             lastUsed?: string | null;
             name: string;
+        };
+        TriageInputResponse: {
+            /** Format: date-time */
+            analyzedAt?: string | null;
+            attachments: components["schemas"]["AttachmentInfo"][];
+            /** Format: date-time */
+            createdAt: string;
+            error?: string | null;
+            /** Format: uuid */
+            id: string;
+            items: components["schemas"]["TriageItemResponse"][];
+            link?: string | null;
+            source: string;
+            status: string;
+            text: string;
+            title: string;
+        };
+        TriageItemResponse: {
+            /** Format: uuid */
+            id: string;
+            proposal: components["schemas"]["Proposal"];
+            result?: string | null;
+            /** Format: int64 */
+            sameAs?: number | null;
+            status: string;
         };
         UpdateCalendarRequest: {
             color?: string | null;
@@ -2104,6 +2250,32 @@ export interface operations {
             };
         };
     };
+    publicTriage: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Created"];
+                };
+            };
+        };
+    };
     search: {
         parameters: {
             query?: {
@@ -2403,6 +2575,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskResponse"];
+                };
+            };
+        };
+    };
+    triage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageInputResponse"][];
+                };
+            };
+        };
+    };
+    submitTriage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageInputResponse"];
+                };
+            };
+        };
+    };
+    dismissTriage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retryTriage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageInputResponse"];
+                };
+            };
+        };
+    };
+    acceptTriage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Proposal"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageItemResponse"];
+                };
+            };
+        };
+    };
+    declineTriage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageItemResponse"];
                 };
             };
         };

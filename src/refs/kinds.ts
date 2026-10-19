@@ -57,7 +57,7 @@ export function appRoute(url: string): string | null {
   else return null;
   // Older links were fragments: "<origin>/#task/<id>".
   if (path.startsWith("#")) path = path.slice(1);
-  return /^(tasks|task|event|mail|calendar)(\/|$)/.test(path) ? path : null;
+  return /^(tasks|task|event|mail|calendar|triage)(\/|$)/.test(path) ? path : null;
 }
 
 /** A link that opens in place (one of the app's pages, or mail) rather than in a new tab. */

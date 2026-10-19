@@ -5,6 +5,7 @@ import { useInitiatives, useProjects, useTasks } from "../tasks/api";
 import { Dot } from "../tasks/icons";
 import { isClosed } from "../tasks/model";
 import { VIEWS } from "../tasks/TasksApp";
+import { useTriage, waitingCount } from "../triage/api";
 import styles from "./Sidebar.module.css";
 
 interface Props {
@@ -27,6 +28,7 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
   const initiatives = useInitiatives().data ?? [];
   const tasks = useTasks().data ?? [];
   const calendars = useCalendars().data ?? [];
+  const triage = waitingCount(useTriage().data);
   const openIn = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !isClosed(t.status)).length;
   const onCalendar = hash.startsWith("calendar");
   const taskRoute = hash.startsWith("tasks/") ? hash.slice(6) : hash === "tasks" || !hash ? "active" : "";
@@ -50,6 +52,8 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
       </div>
 
       <div className={styles.scroll}>
+        <Link icon={<TriageIcon />} label="Triage" count={triage || undefined} active={hash === "triage"} onClick={() => go("triage")} />
+
         {/* Section links: the view underneath carries the highlight. */}
         <Link icon={<TasksIcon />} label="Tasks" active={false} onClick={() => go("tasks/active")} />
         {VIEWS.map((v) => (
@@ -125,6 +129,7 @@ const svg = (children: ReactNode) => (
 );
 const TasksIcon = () => svg(<><circle cx="8" cy="8" r="6" /><path d="M5.5 8.2 7.2 9.8 10.6 6.3" /></>);
 const ProjectsIcon = () => svg(<><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12M6 6v7.5" /></>);
+const TriageIcon = () => svg(<><path d="M2 9.5h3l1.2 2h3.6l1.2-2h3" /><path d="M2 9.5 3.8 3.5h8.4L14 9.5v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" /></>);
 const InitiativesIcon = () => svg(<><path d="M3 14V2.5" /><path d="M3 3h8.5l-1.8 2.7L11.5 8.5H3" /></>);
 const CalendarIcon = () => svg(<><rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /></>);
 const SearchIcon = () => svg(<><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3.5 3.5" /></>);
