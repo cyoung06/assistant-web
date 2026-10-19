@@ -319,3 +319,28 @@
 .upcoming .skippedItem {
   color: var(--text-3);
 }
+
+/* A project's Tasks | Files */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.tabs button {
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.tabs .tabOn {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.filesTab {
+  flex: 1;
+  min-height: 0;
+}

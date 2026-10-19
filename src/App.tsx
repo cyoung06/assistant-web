@@ -190,7 +190,7 @@ function Shell() {
           ) : onTriage ? (
             <TriagePage />
           ) : onFiles ? (
-            <FilesPage path={folderOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p))} />
+            <FilesPage path={"Projects/" + folderOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p.startsWith("Projects/") ? p.slice(9) : p))} />
           ) : onCalendar ? (
             <CalendarApp hidden={hidden} openEventId={openEventId} onOpened={clearOpenEvent} />
           ) : (

@@ -101,6 +101,9 @@ function TasksPage({
     return () => window.removeEventListener(FOCUS_SEARCH, focus);
   }, []);
   const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
+  // A project's page: its tasks, or its files (the project's own storage).
+  const [tab, setTab] = useState<"tasks" | "files">("tasks");
+  useEffect(() => setTab("tasks"), [projectId]);
   const baseDefaults = projectId ? { projectId } : {};
 
   const q = query.trim().toLowerCase();
@@ -112,9 +115,32 @@ function TasksPage({
   const ctx = { today: today(), projects, labels };
   const groups = groupTasks(shown, projectId && display.grouping === "project" ? "status" : display.grouping, display.ordering, ctx);
 
+  const tabs = project && (
+    <div className={styles.tabs} role="tablist">
+      <button role="tab" aria-selected={tab === "tasks"} className={tab === "tasks" ? styles.tabOn : ""} onClick={() => setTab("tasks")}>
+        Tasks
+      </button>
+      <button role="tab" aria-selected={tab === "files"} className={tab === "files" ? styles.tabOn : ""} onClick={() => setTab("files")}>
+        Files
+      </button>
+    </div>
+  );
+  if (project && tab === "files") {
+    return (
+      <div className={styles.page}>
+        <ProjectHeader project={project} back={back} openInitiative={openInitiative} />
+        {tabs}
+        <div className={styles.filesTab}>
+          <ProjectFiles projectId={project.id} projectName={project.name} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       {projectId ? <ProjectHeader project={project} back={back} openInitiative={openInitiative} /> : <h1 className={styles.pageTitle}>{view?.label}</h1>}
+      {tabs}
       <div className={styles.toolbar}>
         <input ref={searchRef} id="tasks-search" className={`input ${styles.search}`} type="search" placeholder="Search or #number" value={query} onChange={(e) => setQuery(e.target.value)} />
         <label className={styles.option}>
@@ -320,7 +346,6 @@ function ProjectHeader({ project: p, back, openInitiative }: { project: Project 
         )}
       </div>
       <ProjectSchedule projectId={p.id} projectName={p.name} />
-      <ProjectFiles projectId={p.id} />
     </>
   );
 }

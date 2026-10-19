@@ -17,11 +17,12 @@ const ICON: Record<ReturnType<typeof kind>, string> = { folder: "📁", pdf: "�
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "");
 
 /**
- * The drive: project folders (and the course files PLMS puts in them), browsed by folder. Files
- * open in the browser; files dropped on the page (or picked) are uploaded into the folder shown.
- * The same drive is mounted in Finder and on the devices.
+ * Projects' storage (each project's folder in the drive, with the course files PLMS puts there),
+ * browsed by folder from [root]: all projects, or one project's own. Files open in the browser;
+ * files dropped on the page (or picked) are uploaded into the folder shown. The same storage is
+ * mounted in Finder and on the devices.
  */
-export function FilesPage({ path, go }: { path: string; go: (path: string) => void }) {
+export function FilesPage({ path, go, root = "Projects/", rootName = "Files" }: { path: string; go: (path: string) => void; root?: string; rootName?: string }) {
   const folder = useFolder(path);
   const info = useDriveInfo().data;
   const { upload, makeFolder, move, remove } = useDriveMutations();
@@ -36,7 +37,8 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
   useEffect(() => localStorage.setItem("files.view", view), [view]);
   useEffect(() => localStorage.setItem("files.tree", tree ? "on" : "off"), [tree]);
 
-  const parts = path.split("/").filter(Boolean);
+  // From the top shown ([root]: all projects' storage, or one project's).
+  const parts = path.slice(root.length).split("/").filter(Boolean);
   const run = (p: Promise<unknown>) => p.catch((e: Error) => setError(e.message));
   const send = (files: File[]) => files.length && run(upload.mutateAsync({ folder: path, files }));
   // Project folders (Projects/<name>/) follow their projects: they're renamed by renaming the project.
@@ -58,11 +60,11 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
     >
       <div className={styles.head}>
         <nav className={styles.crumbs} aria-label="Folder">
-          <button onClick={() => go("")}>Drive</button>
+          <button onClick={() => go(root)}>{rootName}</button>
           {parts.map((p, i) => (
             <span key={i}>
               <span className={styles.sep}>›</span>
-              <button onClick={() => go(parts.slice(0, i + 1).join("/") + "/")}>{p}</button>
+              <button onClick={() => go(root + parts.slice(0, i + 1).join("/") + "/")}>{p}</button>
             </span>
           ))}
         </nav>
@@ -111,7 +113,7 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
       <div className={styles.body}>
       {tree && (
         <nav className={styles.tree} aria-label="Folders">
-          <TreeNode path="" name="Drive" depth={0} current={path} go={go} />
+          <TreeNode path={root} name={rootName} depth={0} current={path} go={go} />
         </nav>
       )}
       {view === "icons" ? (
@@ -196,7 +198,7 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
       </div>
       )}
       </div>
-      {over && <div className={styles.dropHint}>Drop to upload into {parts.at(-1) ?? "the drive"}</div>}
+      {over && <div className={styles.dropHint}>Drop to upload into {parts.at(-1) ?? rootName}</div>}
     </div>
   );
 }
