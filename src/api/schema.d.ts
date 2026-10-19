@@ -46,7 +46,7 @@ export interface paths {
         get: operations["download"];
         put?: never;
         post?: never;
-        delete: operations["delete_2"];
+        delete: operations["deleteAttachment"];
         options?: never;
         head?: never;
         patch?: never;
@@ -93,7 +93,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["analyze_1"];
+        post: operations["analyzeCapture"];
         delete?: never;
         options?: never;
         head?: never;
@@ -107,10 +107,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status"];
+        get: operations["chatgptAccount"];
         put?: never;
         post?: never;
-        delete: operations["disconnect_1"];
+        delete: operations["chatgptDisconnect"];
         options?: never;
         head?: never;
         patch?: never;
@@ -125,7 +125,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["complete"];
+        post: operations["chatgptComplete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -141,7 +141,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["connect_1"];
+        post: operations["chatgptConnect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -157,7 +157,7 @@ export interface paths {
         };
         get: operations["occurrences"];
         put?: never;
-        post: operations["create_2"];
+        post: operations["createEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -171,13 +171,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["event_1"];
+        get: operations["getEvent"];
         put?: never;
         post?: never;
-        delete: operations["delete_1"];
+        delete: operations["deleteEvent"];
         options?: never;
         head?: never;
-        patch: operations["update_1"];
+        patch: operations["updateEvent"];
         trace?: never;
     };
     "/api/v1/ical/feed": {
@@ -299,10 +299,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["account"];
+        get: operations["mailAccount"];
         put?: never;
         post?: never;
-        delete: operations["disconnect"];
+        delete: operations["mailDisconnect"];
         options?: never;
         head?: never;
         patch?: never;
@@ -317,7 +317,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["connect"];
+        post: operations["mailConnect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -331,7 +331,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["message"];
+        get: operations["mailMessage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -379,9 +379,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["listPublicTokens"];
         put?: never;
-        post: operations["create_1"];
+        post: operations["createPublicToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -413,7 +413,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["analyze"];
+        post: operations["publicAnalyze"];
         delete?: never;
         options?: never;
         head?: never;
@@ -429,7 +429,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["event"];
+        post: operations["publicEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -443,7 +443,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["projects_1"];
+        get: operations["publicProjects"];
         put?: never;
         post?: never;
         delete?: never;
@@ -461,7 +461,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["task"];
+        post: operations["publicTask"];
         delete?: never;
         options?: never;
         head?: never;
@@ -539,7 +539,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["listSources"];
         put?: never;
         post?: never;
         delete?: never;
@@ -587,7 +587,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["task_1"];
+        get: operations["task"];
         put?: never;
         post?: never;
         delete: operations["delete"];
@@ -1124,7 +1124,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    deleteAttachment: {
         parameters: {
             query?: never;
             header?: never;
@@ -1190,7 +1190,7 @@ export interface operations {
             };
         };
     };
-    analyze_1: {
+    analyzeCapture: {
         parameters: {
             query?: never;
             header?: never;
@@ -1214,7 +1214,7 @@ export interface operations {
             };
         };
     };
-    status: {
+    chatgptAccount: {
         parameters: {
             query?: never;
             header?: never;
@@ -1234,7 +1234,7 @@ export interface operations {
             };
         };
     };
-    disconnect_1: {
+    chatgptDisconnect: {
         parameters: {
             query?: never;
             header?: never;
@@ -1252,7 +1252,7 @@ export interface operations {
             };
         };
     };
-    complete: {
+    chatgptComplete: {
         parameters: {
             query?: never;
             header?: never;
@@ -1276,7 +1276,7 @@ export interface operations {
             };
         };
     };
-    connect_1: {
+    chatgptConnect: {
         parameters: {
             query?: never;
             header?: never;
@@ -1319,7 +1319,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    createEvent: {
         parameters: {
             query?: never;
             header?: never;
@@ -1343,7 +1343,7 @@ export interface operations {
             };
         };
     };
-    event_1: {
+    getEvent: {
         parameters: {
             query?: never;
             header?: never;
@@ -1365,7 +1365,7 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    deleteEvent: {
         parameters: {
             query?: never;
             header?: never;
@@ -1385,7 +1385,7 @@ export interface operations {
             };
         };
     };
-    update_1: {
+    updateEvent: {
         parameters: {
             query?: never;
             header?: never;
@@ -1676,7 +1676,7 @@ export interface operations {
             };
         };
     };
-    account: {
+    mailAccount: {
         parameters: {
             query?: never;
             header?: never;
@@ -1696,7 +1696,7 @@ export interface operations {
             };
         };
     };
-    disconnect: {
+    mailDisconnect: {
         parameters: {
             query?: never;
             header?: never;
@@ -1714,7 +1714,7 @@ export interface operations {
             };
         };
     };
-    connect: {
+    mailConnect: {
         parameters: {
             query?: never;
             header?: never;
@@ -1734,7 +1734,7 @@ export interface operations {
             };
         };
     };
-    message: {
+    mailMessage: {
         parameters: {
             query: {
                 id: string;
@@ -1868,7 +1868,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    listPublicTokens: {
         parameters: {
             query?: never;
             header?: never;
@@ -1888,7 +1888,7 @@ export interface operations {
             };
         };
     };
-    create_1: {
+    createPublicToken: {
         parameters: {
             query?: never;
             header?: never;
@@ -1932,7 +1932,7 @@ export interface operations {
             };
         };
     };
-    analyze: {
+    publicAnalyze: {
         parameters: {
             query?: never;
             header?: {
@@ -1958,7 +1958,7 @@ export interface operations {
             };
         };
     };
-    event: {
+    publicEvent: {
         parameters: {
             query?: never;
             header?: {
@@ -1984,7 +1984,7 @@ export interface operations {
             };
         };
     };
-    projects_1: {
+    publicProjects: {
         parameters: {
             query?: never;
             header?: {
@@ -2006,7 +2006,7 @@ export interface operations {
             };
         };
     };
-    task: {
+    publicTask: {
         parameters: {
             query?: never;
             header?: {
@@ -2121,7 +2121,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    listSources: {
         parameters: {
             query?: never;
             header?: never;
@@ -2215,7 +2215,7 @@ export interface operations {
             };
         };
     };
-    task_1: {
+    task: {
         parameters: {
             query?: never;
             header?: never;
