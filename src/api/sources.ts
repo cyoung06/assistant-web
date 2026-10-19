@@ -60,6 +60,30 @@ export function useMailMutations() {
   };
 }
 
+// ---- ChatGPT account (the model behind Analyze, on the Codex quota) -------------------
+
+export function useChatGptAccount() {
+  return useQuery({ queryKey: ["chatgpt-account"], queryFn: async () => unwrap(await api.GET("/api/v1/chatgpt/account")) });
+}
+
+export function useChatGptMutations() {
+  const qc = useQueryClient();
+  return {
+    connect: useMutation({
+      mutationFn: async () => unwrap(await api.POST("/api/v1/chatgpt/connect")),
+      onSettled: () => qc.invalidateQueries({ queryKey: ["chatgpt-account"] }),
+    }),
+    complete: useMutation({
+      mutationFn: async (redirectUrl: string) => unwrap(await api.POST("/api/v1/chatgpt/complete", { body: { redirectUrl } })),
+      onSuccess: (status) => qc.setQueryData(["chatgpt-account"], status),
+    }),
+    disconnect: useMutation({
+      mutationFn: async () => unwrap(await api.DELETE("/api/v1/chatgpt/account")),
+      onSettled: () => qc.invalidateQueries({ queryKey: ["chatgpt-account"] }),
+    }),
+  };
+}
+
 // ---- tokens for the Outlook add-in (the public endpoints) ----------------------------
 
 export function usePublicTokens() {

@@ -1,6 +1,6 @@
 import type { SourceStatus } from "../api/client";
 import { useEffect, useRef, useState } from "react";
-import { useFeed, useMailAccount, useMailMutations, usePublicTokenMutations, usePublicTokens, useRotateFeed, useSources, useSyncSource } from "../api/sources";
+import { useChatGptAccount, useChatGptMutations, useFeed, useMailAccount, useMailMutations, usePublicTokenMutations, usePublicTokens, useRotateFeed, useSources, useSyncSource } from "../api/sources";
 import styles from "./SourcesDialog.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -35,6 +35,7 @@ export function SourcesDialog({ onClose }: { onClose: () => void }) {
             <SourceRow key={s.type} source={s} />
           ))}
         </ul>
+        <ChatGpt />
         <CalendarFeed />
         <OutlookAddin />
       </div>
@@ -149,6 +150,103 @@ function MailAccount({ onConnected }: { onConnected: () => void }) {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The model behind Analyze, through a ChatGPT sign-in (it uses the account's Codex quota). OpenAI
+ * only sends the sign-in back to a localhost address, so the user pastes that address here.
+ */
+function ChatGpt() {
+  const account = useChatGptAccount();
+  const { connect, complete, disconnect } = useChatGptMutations();
+  const [link, setLink] = useState<string | null>(null);
+  const [pasted, setPasted] = useState("");
+  const a = account.data;
+  if (!a) return null;
+  const error = connect.error?.message ?? complete.error?.message ?? a.error;
+
+  const start = () =>
+    connect.mutate(undefined, {
+      onSuccess: (r) => {
+        setLink(r.authorizeUrl);
+        window.open(r.authorizeUrl, "_blank", "noopener");
+      },
+    });
+
+  return (
+    <section className={styles.feed}>
+      <h3>ChatGPT</h3>
+      <p className={styles.hint}>The model that reads screenshots and mail when you press Analyze. It runs only then, on your Codex quota.</p>
+      {error && <p className={styles.error}>{error}</p>}
+      {!a.configured ? (
+        <p className={styles.meta}>Not set up on the server yet (token key).</p>
+      ) : a.state === "connected" ? (
+        <>
+          <div className={styles.codeRow}>
+            <span className={styles.meta}>
+              Connected as <strong>{a.email}</strong>
+              {a.plan && <> ({a.plan})</>} · model {a.model}
+            </span>
+            <button className="btn btn-ghost" onClick={() => disconnect.mutate()}>
+              Disconnect
+            </button>
+          </div>
+          {(a.quota ?? []).length > 0 && (
+            <p className={styles.meta}>
+              Codex quota:{" "}
+              {(a.quota ?? [])
+                .map((q) => `${q.name} ${Math.round(q.usedPercent)}% used${q.resetsAt ? `, resets ${new Date(q.resetsAt).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}`)
+                .join(" · ")}
+            </p>
+          )}
+        </>
+      ) : link || a.state === "pending" ? (
+        <>
+          <ol className={styles.steps}>
+            <li>
+              Sign in to ChatGPT in the tab that opened{link && (<> (or <a href={link} target="_blank" rel="noreferrer">open it again</a>)</>)}.
+            </li>
+            <li>
+              It ends on a <code>localhost:1455</code> page that doesn’t load. That’s expected: copy that page’s address.
+            </li>
+            <li>Paste it here.</li>
+          </ol>
+          <form
+            className={styles.feedActions}
+            onSubmit={(e) => {
+              e.preventDefault();
+              complete.mutate(pasted.trim(), { onSuccess: () => { setLink(null); setPasted(""); } });
+            }}
+          >
+            <input
+              id="chatgpt-redirect"
+              className="input"
+              placeholder="http://localhost:1455/auth/callback?code=…"
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              aria-label="Address after signing in"
+            />
+            <button className="btn btn-primary" disabled={!pasted.trim() || complete.isPending}>
+              {complete.isPending ? "Connecting…" : "Connect"}
+            </button>
+          </form>
+          {!link && (
+            <div>
+              <button className="btn btn-ghost" onClick={start}>
+                Make a new sign-in link
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div>
+          <button className="btn btn-primary" onClick={start} disabled={connect.isPending}>
+            {a.state === "error" ? "Reconnect ChatGPT" : "Connect ChatGPT"}
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
