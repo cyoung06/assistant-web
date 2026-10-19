@@ -60,7 +60,20 @@
     const item = Office.context.mailbox.item;
     const f = item.from;
     const from = f ? (f.displayName ? `${f.displayName} <${f.emailAddress}>` : f.emailAddress) : "";
-    return { subject: item.subject || "(no subject)", from, name: f ? f.displayName || f.emailAddress : "", date: item.dateTimeCreated, link: webLink(item) };
+    return {
+      subject: item.subject || "(no subject)",
+      from,
+      name: f ? f.displayName || f.emailAddress : "",
+      date: item.dateTimeCreated,
+      link: webLink(item),
+      ref: midLink(item.internetMessageId),
+    };
+  }
+
+  /** The mail as a reference everywhere else: mid:<Message-ID> (RFC 2392). */
+  function midLink(messageId) {
+    if (!messageId) return null;
+    return "mid:" + encodeURIComponent(messageId.trim().replace(/^</, "").replace(/>$/, "")).replace(/%40/g, "@");
   }
 
   /** A link that opens this mail in Outlook on the web. */
@@ -81,7 +94,11 @@
     );
   }
 
-  const mailNote = (m) => [`From: ${m.from}`, m.link ? `[Open in Outlook](${m.link})` : null].filter(Boolean).join("\n");
+  // Brackets in the subject are escaped so the link stays intact.
+  const mailNote = (m) =>
+    [m.ref ? `Mail: [${m.subject.replace(/([[\]])/g, "\\$1")}](${m.ref})` : null, `From: ${m.from}`, m.link ? `[Open in Outlook](${m.link})` : null]
+      .filter(Boolean)
+      .join("\n");
 
   // ---- screens ---------------------------------------------------------------------------
 
