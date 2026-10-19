@@ -25,6 +25,8 @@ export function kindOf(url: string): RefKind {
   }
   const app = /^(https?:|#|\/)/.test(url) ? APP.exec(url) : null;
   if (app) return ({ task: "task", "tasks/project": "project", event: "event", mail: "mail" } as const)[app[1] as "task"];
+  const gh = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\/(issues|pull)\/\d+)?/.exec(url);
+  if (gh) return gh[1] === "pull" ? "github_pr" : gh[1] === "issues" ? "github_issue" : "github_repo";
   if (/plms\.postech\.ac\.kr/.test(url)) {
     if (/\/mod\/(ubfile|resource)\//.test(url)) return "plms_file";
     if (/\/mod\/ubboard\/article\.php/.test(url)) return "plms_notice";
@@ -73,6 +75,9 @@ export const KIND_LABEL: Record<RefKind, string> = {
   plms_notice: "PLMS post",
   plms_assignment: "PLMS assignment",
   plms_activity: "PLMS",
+  github_repo: "GitHub repo",
+  github_issue: "GitHub issue",
+  github_pr: "Pull request",
   link: "Link",
 };
 

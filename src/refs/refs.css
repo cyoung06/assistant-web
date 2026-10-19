@@ -57,6 +57,15 @@ a.ref:hover {
 .ref[data-kind="link"] {
   --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%209a3%203%200%200%200%204.2%200l2-2a3%203%200%200%200-4.2-4.2l-.7.7%22/%3E%3Cpath%20d%3D%22M9%207a3%203%200%200%200-4.2%200l-2%202a3%203%200%200%200%204.2%204.2l.7-.7%22/%3E%3C/svg%3E");
 }
+.ref[data-kind="github_repo"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%202.5h8.5v10H4.8A1.3%201.3%200%200%200%203.5%2013.8V3.3A.8.8%200%200%201%204.3%202.5z%22/%3E%3Cpath%20d%3D%22M3.5%2013.5a1%201%200%200%200%201%201h8v-2%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="github_issue"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%225.5%22/%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%221%22%20fill%3D%22black%22/%3E%3C/svg%3E");
+}
+.ref[data-kind="github_pr"] {
+  --ref-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%224.5%22%20cy%3D%224%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%224.5%22%20cy%3D%2212%22%20r%3D%221.5%22/%3E%3Ccircle%20cx%3D%2211.5%22%20cy%3D%2212%22%20r%3D%221.5%22/%3E%3Cpath%20d%3D%22M4.5%205.5v5M11.5%2010.5V6.5a2%202%200%200%200-2-2H7.5%22/%3E%3Cpath%20d%3D%22m9%203-1.5%201.5L9%206%22/%3E%3C/svg%3E");
+}
 .ref[data-kind^="plms"]::before {
   background: var(--warn);
 }

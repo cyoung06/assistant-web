@@ -16,6 +16,9 @@ describe("references", () => {
     expect(kindOf("https://plms.postech.ac.kr/mod/ubfile/view.php?id=1")).toBe("plms_file");
     expect(kindOf("https://plms.postech.ac.kr/mod/ubboard/article.php?id=1&bwid=2")).toBe("plms_notice");
     expect(kindOf("https://plms.postech.ac.kr/mod/assign/view.php?id=7")).toBe("plms_assignment");
+    expect(kindOf("https://github.com/PLUS-POSTECH/tasks/pull/42")).toBe("github_pr");
+    expect(kindOf("https://github.com/PLUS-POSTECH/tasks/issues/7")).toBe("github_issue");
+    expect(kindOf("https://github.com/PLUS-POSTECH/tasks")).toBe("github_repo");
     expect(kindOf("https://example.com")).toBe("link");
   });
 

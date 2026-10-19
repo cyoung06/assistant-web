@@ -84,6 +84,26 @@ export function useChatGptMutations() {
   };
 }
 
+// ---- GitHub (references to repos, issues and PRs) ------------------------------------
+
+export function useGitHubAccount() {
+  return useQuery({ queryKey: ["github-account"], queryFn: async () => unwrap(await api.GET("/api/v1/github/account")) });
+}
+
+export function useGitHubMutations() {
+  const qc = useQueryClient();
+  return {
+    connect: useMutation({
+      mutationFn: async (token: string) => unwrap(await api.PUT("/api/v1/github/account", { body: { token } })),
+      onSuccess: (a) => qc.setQueryData(["github-account"], a),
+    }),
+    disconnect: useMutation({
+      mutationFn: async () => unwrap(await api.DELETE("/api/v1/github/account")),
+      onSettled: () => qc.invalidateQueries({ queryKey: ["github-account"] }),
+    }),
+  };
+}
+
 // ---- tokens for the Outlook add-in (the public endpoints) ----------------------------
 
 export function usePublicTokens() {

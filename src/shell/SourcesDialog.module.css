@@ -5,6 +5,9 @@
   display: grid;
   place-items: start center;
   padding: max(10vh, 16px) 16px 16px;
+  /* The dialog grows with its sections; the backdrop scrolls when it's taller than the window. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: rgb(10 12 18 / 0.4);
 }
 

@@ -180,6 +180,22 @@ export interface paths {
         patch: operations["updateEvent"];
         trace?: never;
     };
+    "/api/v1/github/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["githubAccount"];
+        put: operations["connectGithub"];
+        post?: never;
+        delete: operations["disconnectGithub"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ical/feed": {
         parameters: {
             query?: never;
@@ -930,6 +946,13 @@ export interface components {
             createdAt: string;
             path: string;
         };
+        GitHubAccount: {
+            connected: boolean;
+            login?: string | null;
+        };
+        GitHubToken: {
+            token: string;
+        };
         InitiativeResponse: {
             description: string;
             /** Format: int32 */
@@ -1100,7 +1123,7 @@ export interface components {
             /** Format: date-time */
             date?: string | null;
             /** @enum {string} */
-            kind: "task" | "project" | "event" | "mail" | "plms_course" | "plms_file" | "plms_notice" | "plms_assignment" | "plms_activity" | "link";
+            kind: "task" | "project" | "event" | "mail" | "plms_course" | "plms_file" | "plms_notice" | "plms_assignment" | "plms_activity" | "github_repo" | "github_issue" | "github_pr" | "link";
             title: string;
             url: string;
         };
@@ -1144,7 +1167,7 @@ export interface components {
             lastSyncAt?: string | null;
             syncing: boolean;
             /** @enum {string} */
-            type: "manual" | "plms" | "email" | "upload" | "ical";
+            type: "manual" | "plms" | "email" | "upload" | "ical" | "contests";
         };
         SubmitRequest: {
             attachmentIds?: string[];
@@ -1627,6 +1650,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EventResponse"];
                 };
+            };
+        };
+    };
+    githubAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubAccount"];
+                };
+            };
+        };
+    };
+    connectGithub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubToken"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubAccount"];
+                };
+            };
+        };
+    };
+    disconnectGithub: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
