@@ -90,7 +90,7 @@ function Shell() {
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
   const search = () => {
-    if (onCalendar || tasksRoute === "projects") go("tasks/all");
+    if (onCalendar || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };

@@ -228,6 +228,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/initiatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["initiatives"];
+        put?: never;
+        post: operations["createInitiative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/initiatives/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["initiative"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteInitiative"];
+        options?: never;
+        head?: never;
+        patch: operations["updateInitiative"];
+        trace?: never;
+    };
     "/api/v1/labels": {
         parameters: {
             query?: never;
@@ -652,9 +684,19 @@ export interface components {
             startDate?: string | null;
             title: string;
         };
+        CreateInitiativeRequest: {
+            description?: string;
+            name: string;
+            projectIds?: string[];
+            /** @enum {string} */
+            status?: "planned" | "active" | "completed";
+            /** Format: date */
+            targetDate?: string | null;
+        };
         CreateProjectRequest: {
             color?: string | null;
             description?: string;
+            initiativeIds?: string[];
             name: string;
             /** @enum {string} */
             state?: "backlog" | "planned" | "in_progress" | "paused" | "completed" | "canceled";
@@ -735,6 +777,21 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             path: string;
+        };
+        InitiativeResponse: {
+            description: string;
+            /** Format: int32 */
+            doneCount: number;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            projectIds: string[];
+            /** @enum {string} */
+            status: "planned" | "active" | "completed";
+            /** Format: date */
+            targetDate?: string | null;
+            /** Format: int32 */
+            taskCount: number;
         };
         JsonNode: {
             array?: boolean;
@@ -827,6 +884,7 @@ export interface components {
             doneCount: number;
             /** Format: uuid */
             id: string;
+            initiativeIds: string[];
             name: string;
             source?: string | null;
             /** @enum {string} */
@@ -983,6 +1041,7 @@ export interface components {
         UpdateProjectRequest: {
             color?: string | null;
             description?: string | null;
+            initiativeIds?: string[] | null;
             name?: string | null;
             /** @enum {string|null} */
             state?: "backlog" | "planned" | "in_progress" | "paused" | "completed" | "canceled" | null;
@@ -1411,6 +1470,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": string;
+                };
+            };
+        };
+    };
+    initiatives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeResponse"][];
+                };
+            };
+        };
+    };
+    createInitiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInitiativeRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeResponse"];
+                };
+            };
+        };
+    };
+    initiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeResponse"];
+                };
+            };
+        };
+    };
+    deleteInitiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateInitiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JsonNode"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeResponse"];
                 };
             };
         };

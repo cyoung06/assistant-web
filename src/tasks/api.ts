@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { api, unwrap, type CreateTask, type Label, type Project, type ProjectState, type RelationKind, type Task, type TaskPatch } from "../api/client";
+import { api, unwrap, type CreateTask, type Initiative, type InitiativePatch, type InitiativeStatus, type Label, type Project, type ProjectState, type RelationKind, type Task, type TaskPatch } from "../api/client";
 import { isClosed } from "./model";
 
 // One person's tasks fit in one list, so every view reads the same cached list and changes show
@@ -8,6 +8,7 @@ import { isClosed } from "./model";
 const TASKS = ["tasks"];
 const PROJECTS = ["projects"];
 const LABELS = ["labels"];
+const INITIATIVES = ["initiatives"];
 
 export function useTasks() {
   return useQuery({ queryKey: TASKS, queryFn: async () => unwrap(await api.GET("/api/v1/tasks")) });
@@ -21,13 +22,21 @@ export function useProjects() {
   return useQuery({ queryKey: PROJECTS, queryFn: async () => unwrap(await api.GET("/api/v1/projects")) });
 }
 
+export function useInitiatives() {
+  return useQuery({ queryKey: INITIATIVES, queryFn: async () => unwrap(await api.GET("/api/v1/initiatives")) });
+}
+
 export function useLabels() {
   return useQuery({ queryKey: LABELS, queryFn: async () => unwrap(await api.GET("/api/v1/labels")), staleTime: 60_000 });
 }
 
-/** Other tasks' counts (sub-tasks, blocked) and project progress follow from any change. */
+/** Other tasks' counts (sub-tasks, blocked) and project and initiative progress follow from any change. */
 function refresh(qc: QueryClient) {
-  return Promise.all([qc.invalidateQueries({ queryKey: TASKS }), qc.invalidateQueries({ queryKey: PROJECTS })]);
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: TASKS }),
+    qc.invalidateQueries({ queryKey: PROJECTS }),
+    qc.invalidateQueries({ queryKey: INITIATIVES }),
+  ]);
 }
 
 /** Changes the cached list right away; returns a function that puts it back. */
@@ -102,15 +111,42 @@ export function useProjectMutations() {
       },
     }),
     update: useMutation({
-      mutationFn: async ({ id, ...body }: { id: string; name?: string; description?: string; color?: string; state?: ProjectState }) =>
+      mutationFn: async ({ id, ...body }: { id: string; name?: string; description?: string; color?: string; state?: ProjectState; initiativeIds?: string[] }) =>
         unwrap(await api.PATCH("/api/v1/projects/{id}", { params: { path: { id } }, body })),
-      onSuccess: (p) => {
+      onSuccess: (p, vars) => {
         qc.setQueryData<Project[]>(PROJECTS, (list) => list?.map((x) => (x.id === p.id ? p : x)));
+        if (vars.initiativeIds) return qc.invalidateQueries({ queryKey: INITIATIVES });
       },
     }),
     remove: useMutation({
       mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/projects/{id}", { params: { path: { id } } })),
       onSettled: done,
+    }),
+  };
+}
+
+export function useInitiativeMutations() {
+  const qc = useQueryClient();
+  const both = () => Promise.all([qc.invalidateQueries({ queryKey: INITIATIVES }), qc.invalidateQueries({ queryKey: PROJECTS })]);
+  return {
+    create: useMutation({
+      mutationFn: async (body: { name: string; status?: InitiativeStatus; projectIds?: string[] }) => unwrap(await api.POST("/api/v1/initiatives", { body })),
+      onSuccess: (i) => {
+        qc.setQueryData<Initiative[]>(INITIATIVES, (list) => (list ? [...list, i] : list));
+        return both();
+      },
+    }),
+    update: useMutation({
+      mutationFn: async ({ id, ...patch }: InitiativePatch & { id: string }) =>
+        unwrap(await api.PATCH("/api/v1/initiatives/{id}", { params: { path: { id } }, body: patch as never })),
+      onSuccess: (i, vars) => {
+        qc.setQueryData<Initiative[]>(INITIATIVES, (list) => list?.map((x) => (x.id === i.id ? i : x)));
+        if (vars.projectIds) return qc.invalidateQueries({ queryKey: PROJECTS });
+      },
+    }),
+    remove: useMutation({
+      mutationFn: async (id: string) => unwrap(await api.DELETE("/api/v1/initiatives/{id}", { params: { path: { id } } })),
+      onSettled: both,
     }),
   };
 }

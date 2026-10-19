@@ -11,6 +11,8 @@ export type RelationKind = Relation["kind"];
 export type Project = Schemas["ProjectResponse"];
 export type ProjectState = Project["state"];
 export type Label = Schemas["LabelResponse"];
+export type Initiative = Schemas["InitiativeResponse"];
+export type InitiativeStatus = Initiative["status"];
 export type CreateTask = Schemas["CreateTaskRequest"];
 export type Calendar = Schemas["CalendarResponse"];
 export type EventOccurrence = Schemas["EventOccurrence"];
@@ -18,6 +20,9 @@ export type CalendarEvent = Schemas["EventResponse"];
 export type CreateEvent = Schemas["CreateEventRequest"];
 export type Repeat = Schemas["RepeatDto"];
 export type SourceStatus = Schemas["SourceStatus"];
+
+/** JSON merge patch for an initiative: absent fields stay; a null target date clears it. */
+export type InitiativePatch = Partial<{ name: string; description: string; status: InitiativeStatus; targetDate: string | null; projectIds: string[] }>;
 
 /** JSON merge patch for a task: absent fields stay, null clears. */
 export type TaskPatch = Partial<{

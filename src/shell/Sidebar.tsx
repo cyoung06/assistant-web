@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useCalendars } from "../calendar/api";
 import { DEADLINES } from "../calendar/CalendarApp";
-import { useProjects, useTasks } from "../tasks/api";
+import { useInitiatives, useProjects, useTasks } from "../tasks/api";
 import { Dot } from "../tasks/icons";
 import { isClosed } from "../tasks/model";
 import { VIEWS } from "../tasks/TasksApp";
@@ -24,12 +24,17 @@ interface Props {
 /** Linear-style navigation: task views, projects, calendar (with its toggles), and the app's tools. */
 export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onNewTask, onSearch, onSources, onShortcuts }: Props) {
   const projects = useProjects().data ?? [];
+  const initiatives = useInitiatives().data ?? [];
   const tasks = useTasks().data ?? [];
   const calendars = useCalendars().data ?? [];
   const openIn = (projectId: string) => tasks.filter((t) => t.projectId === projectId && !isClosed(t.status)).length;
   const onCalendar = hash.startsWith("calendar");
   const taskRoute = hash.startsWith("tasks/") ? hash.slice(6) : hash === "tasks" || !hash ? "active" : "";
-  const shownProjects = projects.filter((p) => p.state !== "completed" && p.state !== "canceled");
+  // Open projects that are in an active initiative or in none: last semester's courses drop out once it's completed.
+  const active = new Set(initiatives.filter((i) => i.status === "active").map((i) => i.id));
+  const shownProjects = projects.filter(
+    (p) => p.state !== "completed" && p.state !== "canceled" && (p.initiativeIds.length === 0 || p.initiativeIds.some((id) => active.has(id))),
+  );
   const toggle = (id: string) => onHidden(hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id]);
 
   return (
@@ -51,6 +56,7 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
           <Link key={v.id} sub label={v.label} active={taskRoute === v.id} onClick={() => go(`tasks/${v.id}`)} />
         ))}
 
+        <Link icon={<InitiativesIcon />} label="Initiatives" active={taskRoute === "initiatives" || taskRoute.startsWith("initiative/")} onClick={() => go("tasks/initiatives")} />
         <Link icon={<ProjectsIcon />} label="Projects" active={taskRoute === "projects"} onClick={() => go("tasks/projects")} />
         {shownProjects.map((p) => (
           <Link
@@ -119,6 +125,7 @@ const svg = (children: ReactNode) => (
 );
 const TasksIcon = () => svg(<><circle cx="8" cy="8" r="6" /><path d="M5.5 8.2 7.2 9.8 10.6 6.3" /></>);
 const ProjectsIcon = () => svg(<><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12M6 6v7.5" /></>);
+const InitiativesIcon = () => svg(<><path d="M3 14V2.5" /><path d="M3 3h8.5l-1.8 2.7L11.5 8.5H3" /></>);
 const CalendarIcon = () => svg(<><rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /></>);
 const SearchIcon = () => svg(<><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3.5 3.5" /></>);
 const PenIcon = () => svg(<><path d="M10.5 2.5 13.5 5.5 6 13H3v-3z" /><path d="m9 4 3 3" /></>);

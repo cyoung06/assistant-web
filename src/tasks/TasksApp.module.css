@@ -64,21 +64,126 @@
   font-size: var(--text-sm);
 }
 
-/* Projects */
+/* Projects and initiatives */
 .projectRow {
   display: flex;
   align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+.projectRow:hover {
+  background: var(--surface-2);
+}
+.projectOpen {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 12px;
-  width: 100%;
   height: 46px;
   padding: 0 16px;
   border: 0;
-  border-bottom: 1px solid var(--line);
   background: none;
   font-size: var(--text-sm);
   text-align: left;
 }
-.projectRow:hover {
+.rowRemove {
+  width: 36px;
+  height: 36px;
+  margin-right: 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+}
+.rowRemove:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.groupHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.groupCount {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.statusMark {
+  flex: none;
+}
+.toolbar .inlineSelect {
+  width: auto;
+  height: 30px;
+  font-size: var(--text-sm);
+}
+.sectionTitle {
+  font-size: var(--text-sm);
+}
+.description {
+  padding: 4px 16px 12px;
+  font-size: var(--text-sm);
+}
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+}
+.chipLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 4px 0 9px;
+  border: 0;
+  background: none;
+}
+.chipRemove {
+  height: 100%;
+  padding: 0 8px 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+}
+.chipRemove:hover {
+  color: var(--text);
+}
+.chipAdd {
+  height: 26px;
+  font-size: var(--text-xs);
+}
+.pickList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+.pickItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+.pickItem:hover {
   background: var(--surface-2);
 }
 .projectName {
