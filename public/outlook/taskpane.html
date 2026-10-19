@@ -39,7 +39,7 @@
 
       <div class="tabs" role="tablist">
         <button id="tabTask" role="tab" class="on">Reply later</button>
-        <button id="tabAnalyze" role="tab">Analyze</button>
+        <button id="tabAnalyze" role="tab">To Triage</button>
       </div>
 
       <div id="taskForm" class="stack">
@@ -66,10 +66,8 @@
       </div>
 
       <div id="analyzeForm" class="stack" hidden>
-        <p class="muted small">The model reads this mail and suggests tasks and events. Nothing is added until you choose.</p>
-        <button id="analyze" class="primary wide">Analyze this mail</button>
-        <div id="proposals" class="stack"></div>
-        <button id="createPicked" class="primary wide" hidden>Add selected</button>
+        <p class="muted small">The model reads this mail in the background; its suggestions wait in Assistant's Triage for you to accept. Nothing is added until then.</p>
+        <button id="analyze" class="primary wide">Send to Triage</button>
       </div>
 
       <div id="done" class="card done" hidden>

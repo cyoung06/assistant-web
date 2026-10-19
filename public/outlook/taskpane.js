@@ -12,7 +12,6 @@
 
   let token = "";
   let due = null;
-  let picks = [];
 
   // ---- dates (Seoul, like everywhere in Assistant) -------------------------------------
 
@@ -179,74 +178,14 @@
     });
   }
 
-  // ---- analyze ------------------------------------------------------------------------------
+  // ---- triage -------------------------------------------------------------------------------
 
-  function describe(p) {
-    const time = (iso) => iso.slice(11, 16);
-    if (p.kind === "event" && p.start) return `${short(p.start.slice(0, 10))} ${time(p.start)}–${time(p.end)}`;
-    if (p.kind === "event" && p.startDate) return `${short(p.startDate)}, all day`;
-    if (p.due) return `Due ${short(p.due.date)}${p.due.time ? " " + p.due.time.slice(0, 5) : ""}`;
-    return "No due date";
-  }
-
-  async function analyze() {
-    $("proposals").replaceChildren(el("div", { className: "skeleton" }), el("div", { className: "skeleton" }));
-    $("createPicked").hidden = true;
-    await busy($("analyze"), "Reading the mail", async () => {
+  async function sendToTriage() {
+    await busy($("analyze"), "Sending", async () => {
       const m = mail();
       const text = `Mail from ${m.from}, subject: ${m.subject}\n\n${(await body()).slice(0, 40000)}`;
-      const r = await api("analyze", { text });
-      picks = r.items.map((p) => ({ p, keep: true, title: p.title }));
-    });
-    renderPicks();
-    // With results showing, adding them is the main action.
-    $("analyze").textContent = picks.length ? "Analyze again" : "Analyze this mail";
-    $("analyze").classList.toggle("primary", !picks.length);
-  }
-
-  function renderPicks() {
-    if (!picks.length) {
-      $("proposals").replaceChildren(...($("error").textContent ? [] : [el("p", { className: "muted small center", textContent: "Nothing to track in this mail." })]));
-      $("createPicked").hidden = true;
-      return;
-    }
-    $("proposals").replaceChildren(
-      ...picks.map((x) => {
-        const card = el("div", { className: "card proposal" + (x.keep ? "" : " off") });
-        const box = el("input", { type: "checkbox", checked: x.keep, onchange: () => { x.keep = box.checked; card.classList.toggle("off", !x.keep); count(); } });
-        const title = el("textarea", { rows: 1, value: x.title, oninput: () => { x.title = title.value; } });
-        card.appendChildren([
-          box,
-          el("div", { className: "grow" },
-            title,
-            el("div", { className: "meta" }, el("span", { className: "badge " + (x.p.kind === "event" ? "event" : "task"), textContent: x.p.kind === "event" ? "Event" : "Task" }), describe(x.p)),
-            x.p.description ? el("div", { className: "desc", textContent: x.p.description }) : null),
-        ]);
-        return card;
-      }),
-    );
-    count();
-  }
-
-  function count() {
-    const n = picks.filter((x) => x.keep).length;
-    $("createPicked").hidden = !picks.length;
-    $("createPicked").disabled = n === 0;
-    $("createPicked").textContent = n === 1 ? "Add 1 to Assistant" : `Add ${n} to Assistant`;
-  }
-
-  async function createPicked() {
-    await busy($("createPicked"), "Adding", async () => {
-      const note = mailNote(mail());
-      let n = 0;
-      for (const x of picks.filter((x) => x.keep)) {
-        const p = x.p;
-        const description = [p.description, note].filter(Boolean).join("\n\n");
-        if (p.kind === "event") await api("events", { title: x.title, notes: description, start: p.start, end: p.end, startDate: p.startDate, endDate: p.endDate, projectId: p.projectId });
-        else await api("tasks", { title: x.title, description, due: p.due, projectId: p.projectId, priority: p.priority || "none" });
-        n++;
-      }
-      showDone(n === 1 ? "Added 1 item to Assistant" : `Added ${n} items to Assistant`);
+      const r = await api("triage", { title: m.subject, text, link: m.ref });
+      showDone("Sent to Triage", r.url);
     });
   }
 
@@ -284,8 +223,7 @@
     $("reply").onclick = () => { const on = $("reply").classList.toggle("on"); $("reply").setAttribute("aria-pressed", String(on)); };
     $("pickDate").onchange = () => { if ($("pickDate").value) { due = $("pickDate").value; renderDue(); } };
     $("add").onclick = addTask;
-    $("analyze").onclick = analyze;
-    $("createPicked").onclick = createPicked;
+    $("analyze").onclick = sendToTriage;
     $("again").onclick = (e) => { e.preventDefault(); reset(); };
     start();
   });

@@ -64,14 +64,6 @@ button.busy::after { content: ""; display: inline-block; width: 12px; height: 12
 .steps { margin: 0; padding-left: 20px; color: var(--text-2); display: flex; flex-direction: column; gap: 4px; }
 .steps b { color: var(--text); font-weight: 600; }
 
-.proposal { display: flex; gap: 10px; align-items: flex-start; }
-.proposal.off { opacity: .5; }
-.proposal input[type=checkbox] { width: 18px; height: 18px; margin-top: 9px; accent-color: var(--accent); flex: none; }
-.proposal .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-right: 6px; }
-.badge.task { background: var(--accent-soft); color: var(--accent); }
-.badge.event { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
-.proposal .meta { font-size: 12px; color: var(--text-2); margin-top: 5px; }
-.proposal .desc { font-size: 12px; color: var(--text-3); margin-top: 2px; }
 
 .done { display: flex; gap: 10px; align-items: center; border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
 .done .check { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--ok); color: #fff; font-weight: 700; flex: none; }
@@ -83,5 +75,3 @@ a:hover { text-decoration: underline; }
 .error:empty { display: none; }
 footer { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px 14px; }
 footer a { color: var(--text-3); }
-.skeleton { height: 64px; border-radius: 10px; background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
