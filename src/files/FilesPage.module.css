@@ -66,11 +66,140 @@
   line-height: 1.6;
 }
 
-.list {
+.body {
   flex: 1;
   min-height: 0;
+  display: flex;
+}
+.list {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 6px 8px 24px;
+}
+
+/* The view switch */
+.toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.toggle button {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.toggle button + button {
+  border-left: 1px solid var(--line);
+}
+.toggle .on {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Folder tree */
+.tree {
+  flex: none;
+  width: 260px;
+  overflow: auto;
+  padding: 8px 4px 24px;
+  border-right: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+}
+.treeRow:hover {
+  background: var(--surface-2);
+}
+.treeOn {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.arrow {
+  flex: none;
+  width: 18px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.treeName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+}
+
+/* Icon view */
+.grid {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-auto-rows: min-content;
+  gap: 10px;
+  padding: 14px 16px 24px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tile:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+.tileIcon {
+  font-size: 44px;
+  line-height: 64px;
+  height: 64px;
+}
+.thumb {
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+.tileName {
+  width: 100%;
+  font-size: var(--text-sm);
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.tileMeta {
+  color: var(--text-3);
+  font-size: var(--text-xs);
 }
 .row {
   display: flex;
@@ -146,6 +275,9 @@
 }
 
 @media (max-width: 640px) {
+  .tree {
+    display: none;
+  }
   .meta {
     display: none;
   }

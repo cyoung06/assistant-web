@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { fileUrl, size, useDriveInfo, useDriveMutations, useFolder, type DriveEntry } from "./api";
 import styles from "./FilesPage.module.css";
 
@@ -30,6 +30,11 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
   const [renaming, setRenaming] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [view, setView] = useState<"list" | "icons">(() => (localStorage.getItem("files.view") === "icons" ? "icons" : "list"));
+  const [tree, setTree] = useState(() => localStorage.getItem("files.tree") !== "off");
+  useEffect(() => localStorage.setItem("files.view", view), [view]);
+  useEffect(() => localStorage.setItem("files.tree", tree ? "on" : "off"), [tree]);
 
   const parts = path.split("/").filter(Boolean);
   const run = (p: Promise<unknown>) => p.catch((e: Error) => setError(e.message));
@@ -76,6 +81,17 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
         >
           New folder
         </button>
+        <span className={styles.toggle} role="group" aria-label="View">
+          <button className={tree ? styles.on : ""} title="Folder tree" onClick={() => setTree((t) => !t)}>
+            Tree
+          </button>
+          <button className={view === "list" ? styles.on : ""} title="List" onClick={() => setView("list")}>
+            List
+          </button>
+          <button className={view === "icons" ? styles.on : ""} title="Icons" onClick={() => setView("icons")}>
+            Icons
+          </button>
+        </span>
         <button className="btn btn-ghost" onClick={() => setConnect((c) => !c)}>
           Open on Mac…
         </button>
@@ -92,6 +108,32 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
         </p>
       )}
 
+      <div className={styles.body}>
+      {tree && (
+        <nav className={styles.tree} aria-label="Folders">
+          <TreeNode path="" name="Drive" depth={0} current={path} go={go} />
+        </nav>
+      )}
+      {view === "icons" ? (
+        <div className={styles.grid}>
+          {folder.isPending && <p className={styles.note}>Loading…</p>}
+          {folder.data && folder.data.entries.length === 0 && <p className={styles.note}>Nothing here yet. Drop files here to upload them.</p>}
+          {folder.data?.entries.map((e) =>
+            e.folder ? (
+              <button key={e.path} className={styles.tile} onClick={() => go(e.path)} title={e.name}>
+                <span className={styles.tileIcon}>{ICON.folder}</span>
+                <span className={styles.tileName}>{e.name}</span>
+              </button>
+            ) : (
+              <a key={e.path} className={styles.tile} href={fileUrl(e.path)} target="_blank" rel="noreferrer" title={e.name}>
+                {kind(e) === "image" ? <img className={styles.thumb} src={fileUrl(e.path)} alt="" loading="lazy" /> : <span className={styles.tileIcon}>{ICON[kind(e)]}</span>}
+                <span className={styles.tileName}>{e.name}</span>
+                <span className={styles.tileMeta}>{size(e.size)}</span>
+              </a>
+            ),
+          )}
+        </div>
+      ) : (
       <div className={styles.list}>
         {folder.isPending && <p className={styles.note}>Loading…</p>}
         {folder.isError && <p className={styles.error}>Couldn't open this folder.</p>}
@@ -152,7 +194,37 @@ export function FilesPage({ path, go }: { path: string; go: (path: string) => vo
           </div>
         ))}
       </div>
+      )}
+      </div>
       {over && <div className={styles.dropHint}>Drop to upload into {parts.at(-1) ?? "the drive"}</div>}
+    </div>
+  );
+}
+
+/** One folder in the tree: click to open it, the arrow to show what's inside (remembered). */
+function TreeNode({ path, name, depth, current, go }: { path: string; name: string; depth: number; current: string; go: (path: string) => void }) {
+  const key = `files.open.${path}`;
+  const [open, setOpen] = useState(() => depth === 0 || current.startsWith(path) || localStorage.getItem(key) === "1");
+  useEffect(() => {
+    if (current.startsWith(path) && path !== current) setOpen(true);
+  }, [current, path]);
+  const children = useFolder(path, open);
+  const folders = children.data?.entries.filter((e) => e.folder) ?? [];
+  const toggle = () => {
+    setOpen((o) => !o);
+    localStorage.setItem(key, open ? "0" : "1");
+  };
+  return (
+    <div>
+      <div className={`${styles.treeRow} ${current === path ? styles.treeOn : ""}`} style={{ paddingLeft: 6 + depth * 14 }}>
+        <button className={styles.arrow} onClick={toggle} aria-label={open ? "Collapse" : "Expand"}>
+          {open ? "▾" : "▸"}
+        </button>
+        <button className={styles.treeName} onClick={() => go(path)} title={name}>
+          {name}
+        </button>
+      </div>
+      {open && folders.map((f) => <TreeNode key={f.path} path={f.path} name={f.name} depth={depth + 1} current={current} go={go} />)}
     </div>
   );
 }

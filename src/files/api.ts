@@ -11,8 +11,8 @@ export function useDriveInfo() {
 }
 
 /** A folder of the drive ("" for its top), folders first. */
-export function useFolder(path: string) {
-  return useQuery({ queryKey: ["drive", "folder", path], queryFn: async () => unwrap(await api.GET("/api/v1/drive/folder", { params: { query: { path } } })) });
+export function useFolder(path: string, enabled = true) {
+  return useQuery({ queryKey: ["drive", "folder", path], enabled, queryFn: async () => unwrap(await api.GET("/api/v1/drive/folder", { params: { query: { path } } })) });
 }
 
 /** A project's folder (made if needed): its path, and what's in it. */
