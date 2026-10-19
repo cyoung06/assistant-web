@@ -4,7 +4,7 @@ import { useProjects, useTasks } from "../tasks/api";
 import { shortcutsBlocked } from "../tasks/context";
 import { dueText } from "../tasks/model";
 import { kindOf } from "../refs/kinds";
-import { upload, useTriage, useTriageMutations, type Proposal, type TriageInput, type TriageItem } from "./api";
+import { upload, useSaveTriageProfile, useTriage, useTriageMutations, useTriageProfile, type Proposal, type TriageInput, type TriageItem } from "./api";
 import styles from "./TriagePage.module.css";
 
 const SOURCE: Record<string, string> = { share: "Shared", capture: "Captured", addin: "From Outlook", mail: "Mail" };
@@ -44,12 +44,19 @@ export function TriagePage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, Partial<Proposal>>>({});
 
-  const open = inputs.filter((i) => i.items.some((x) => x.status === "pending"));
+  const undecided = (i: TriageInput) => i.items.some((x) => x.status === "pending");
+  // Mail the model wasn't sure applies to me waits apart, folded.
+  const open = inputs.filter((i) => undecided(i) && i.verdict !== "maybe");
+  const maybe = inputs.filter((i) => undecided(i) && i.verdict === "maybe");
   const reading = inputs.filter((i) => i.status === "pending");
   const failed = inputs.filter((i) => i.status === "failed");
   const nothing = inputs.filter((i) => i.status === "done" && i.items.length === 0);
   const handled = inputs.filter((i) => i.status === "done" && i.items.length > 0 && i.items.every((x) => x.status !== "pending"));
-  const pendingItems = useMemo(() => open.flatMap((i) => i.items.filter((x) => x.status === "pending")), [open]);
+  const [showMaybe, setShowMaybe] = useState(false);
+  const pendingItems = useMemo(
+    () => [...open, ...(showMaybe ? maybe : [])].flatMap((i) => i.items.filter((x) => x.status === "pending")),
+    [open, maybe, showMaybe],
+  );
 
   const proposalOf = (item: TriageItem): Proposal => ({ ...item.proposal, ...edits[item.id] });
   const act = (item: TriageItem, yes: boolean) => {
@@ -76,9 +83,31 @@ export function TriagePage() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  function suggestions(i: TriageInput) {
+    return i.items.map((item) =>
+      item.status === "pending" ? (
+        <Suggestion
+          key={item.id}
+          item={item}
+          proposal={proposalOf(item)}
+          selected={item.id === (selected ?? pendingItems[0]?.id)}
+          onSelect={() => setSelected(item.id)}
+          onEdit={(p) => setEdits((e) => ({ ...e, [item.id]: { ...e[item.id], ...p } }))}
+          onAccept={() => act(item, true)}
+          onDecline={() => act(item, false)}
+        />
+      ) : (
+        <Decided key={item.id} item={item} />
+      ),
+    );
+  }
+
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>Triage</h1>
+      <div className={styles.titleRow}>
+        <h1 className={styles.title}>Triage</h1>
+        <ProfileEditor />
+      </div>
       <Composer />
       <div className={styles.scroll}>
         {triage.isPending && <p className={styles.note}>Loading…</p>}
@@ -93,24 +122,22 @@ export function TriagePage() {
         ))}
         {open.map((i) => (
           <InputCard key={i.id} input={i}>
-            {i.items.map((item) =>
-              item.status === "pending" ? (
-                <Suggestion
-                  key={item.id}
-                  item={item}
-                  proposal={proposalOf(item)}
-                  selected={item.id === (selected ?? pendingItems[0]?.id)}
-                  onSelect={() => setSelected(item.id)}
-                  onEdit={(p) => setEdits((e) => ({ ...e, [item.id]: { ...e[item.id], ...p } }))}
-                  onAccept={() => act(item, true)}
-                  onDecline={() => act(item, false)}
-                />
-              ) : (
-                <Decided key={item.id} item={item} />
-              ),
-            )}
+            {suggestions(i)}
           </InputCard>
         ))}
+        {maybe.length > 0 && (
+          <section className={styles.folded}>
+            <button className={styles.foldHead} onClick={() => setShowMaybe(!showMaybe)}>
+              {showMaybe ? "▾" : "▸"} Maybe <span className={styles.when}>{maybe.length} · might not apply to you</span>
+            </button>
+            {showMaybe &&
+              maybe.map((i) => (
+                <InputCard key={i.id} input={i}>
+                  {suggestions(i)}
+                </InputCard>
+              ))}
+          </section>
+        )}
         {failed.map((i) => (
           <InputCard key={i.id} input={i}>
             <p className={styles.error}>Couldn't read this: {i.error}</p>
@@ -120,6 +147,46 @@ export function TriagePage() {
         <Folded label="Handled" inputs={handled} />
       </div>
     </div>
+  );
+}
+
+/** What the model is told about you, to judge which mail matters. */
+function ProfileEditor() {
+  const profile = useTriageProfile();
+  const save = useSaveTriageProfile();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  return (
+    <>
+      <button
+        className="btn btn-ghost"
+        onClick={() => {
+          setText(profile.data?.text ?? "");
+          setOpen(!open);
+        }}
+        title="What the model knows about you when it reads mail"
+      >
+        About me
+      </button>
+      {open && (
+        <div className={styles.profile}>
+          <p className={styles.note}>
+            The model reads this with every mail to decide whether it matters to you. Your courses are added from the active initiative, and your recent
+            accepts and declines teach it too.
+          </p>
+          <textarea id="triage-profile" className="input" rows={7} value={text} onChange={(e) => setText(e.target.value)} />
+          <div className={styles.composerBar}>
+            <span className={styles.spacer} />
+            <button className="btn btn-ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" disabled={save.isPending || !text.trim()} onClick={() => save.mutate(text, { onSuccess: () => setOpen(false) })}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -203,6 +270,7 @@ function InputCard({ input: i, children }: { input: TriageInput; children: React
         ) : (
           <span className={styles.inputTitle}>{i.title}</span>
         )}
+        {i.sender && <span className={styles.when}>{i.sender.replace(/\s*<.*>$/, "")}</span>}
         <span className={styles.when}>{ago(i.createdAt)}</span>
         <span className={styles.spacer} />
         {i.status !== "pending" && (
@@ -223,7 +291,10 @@ function InputCard({ input: i, children }: { input: TriageInput; children: React
           ))}
         </div>
       )}
-      {i.text && i.text.trim() !== i.title && i.attachments.length === 0 && i.items.length === 0 && <p className={styles.text}>{i.text.slice(0, 280)}</p>}
+      {i.reason && <p className={styles.reason}>{i.verdict === "nothing" ? "Nothing to do: " : ""}{i.reason}</p>}
+      {i.source !== "mail" && i.text && i.text.trim() !== i.title && i.attachments.length === 0 && i.items.length === 0 && (
+        <p className={styles.text}>{i.text.slice(0, 280)}</p>
+      )}
       {children}
     </section>
   );

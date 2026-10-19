@@ -756,6 +756,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/triage/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["triageProfile"];
+        put: operations["setTriageProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -766,6 +782,8 @@ export interface components {
         };
         AnalyzeResponse: {
             items: components["schemas"]["Proposal"][];
+            reason?: string | null;
+            verdict?: string | null;
         };
         AttachmentInfo: {
             contentType: string;
@@ -1214,10 +1232,13 @@ export interface components {
             id: string;
             items: components["schemas"]["TriageItemResponse"][];
             link?: string | null;
+            reason?: string | null;
+            sender?: string | null;
             source: string;
             status: string;
             text: string;
             title: string;
+            verdict?: string | null;
         };
         TriageItemResponse: {
             /** Format: uuid */
@@ -1227,6 +1248,9 @@ export interface components {
             /** Format: int64 */
             sameAs?: number | null;
             status: string;
+        };
+        TriageProfile: {
+            text: string;
         };
         UpdateCalendarRequest: {
             color?: string | null;
@@ -2709,6 +2733,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TriageItemResponse"];
+                };
+            };
+        };
+    };
+    triageProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageProfile"];
+                };
+            };
+        };
+    };
+    setTriageProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageProfile"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriageProfile"];
                 };
             };
         };

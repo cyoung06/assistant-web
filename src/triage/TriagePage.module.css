@@ -6,6 +6,12 @@
   background: var(--surface);
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 12px;
+}
 .title {
   margin: 0;
   padding: 14px 16px 2px;
@@ -236,4 +242,22 @@
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+.reason {
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.profile textarea {
+  resize: vertical;
 }

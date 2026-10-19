@@ -64,3 +64,16 @@ export function useTriageMutations() {
     }),
   };
 }
+
+/** What the model is told about you, to judge which mail matters. */
+export function useTriageProfile() {
+  return useQuery({ queryKey: ["triage-profile"], queryFn: async () => unwrap(await api.GET("/api/v1/triage/profile")) });
+}
+
+export function useSaveTriageProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (text: string) => unwrap(await api.PUT("/api/v1/triage/profile", { body: { text } })),
+    onSuccess: (p) => qc.setQueryData(["triage-profile"], p),
+  });
+}
