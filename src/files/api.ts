@@ -49,6 +49,14 @@ export function useDriveMutations() {
         check(await fetch(`/api/v1/drive/move?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { method: "POST" })),
       onSettled: refresh,
     }),
+    copy: useMutation({
+      mutationFn: async ({ from, to }: { from: string; to: string }) => {
+        const res = await fetch(`/api/v1/drive/copy?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { method: "POST" });
+        await check(res);
+        return (await res.json()) as { path: string };
+      },
+      onSettled: refresh,
+    }),
     remove: useMutation({
       mutationFn: async (path: string) => check(await fetch(fileUrl(path), { method: "DELETE" })),
       onSettled: refresh,
@@ -99,3 +107,15 @@ export function kind(e: { name: string; folder?: boolean }): "folder" | "pdf" | 
   if (/\.(txt|md|markdown|csv|tsv|json|ya?ml|toml|xml|html?|css|log|tex|bib|sh|py|ipynb|c|h|cc|cpp|hpp|java|kt|kts|js|jsx|ts|tsx|rs|go|rb|swift|sql|m|r|ini|conf)$/.test(n)) return "text";
   return "file";
 }
+
+/** What a drag of a drive entry carries (within the app). */
+export const DRIVE_DRAG = "application/x-assistant-drive";
+
+/** The last thing copied or cut, to paste into another folder (kept across folders and pages). */
+export type Clip = { path: string; name: string; folder: boolean; cut: boolean };
+
+/** In a project's Course files (what PLMS has, kept as it is there; copy one out to change it), or that folder itself. */
+export const readOnly = (path: string) => {
+  const parts = path.split("/");
+  return parts.length >= 3 && parts[0] === "Projects" && parts[2] === "Course files";
+};

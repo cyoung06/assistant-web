@@ -307,3 +307,27 @@
     opacity: 1;
   }
 }
+
+/* A folder something is being dragged onto */
+.target,
+.tree .target,
+.crumbs .target {
+  background: var(--accent-soft, var(--surface-2));
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.clip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.clip :global(.btn):first-child {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

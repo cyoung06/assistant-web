@@ -1,9 +1,14 @@
 import { useEffect, useState, type DragEvent } from "react";
-import { fileUrl, kind, parentOf, thumbUrl, size, useDriveInfo, useDriveMutations, useFolder, type DriveEntry } from "./api";
+import { DRIVE_DRAG, fileUrl, kind, parentOf, readOnly, thumbUrl, type Clip, size, useDriveInfo, useDriveMutations, useFolder, type DriveEntry } from "./api";
 import { FileViewer } from "./FileViewer";
 import styles from "./FilesPage.module.css";
 
 const ICON: Record<ReturnType<typeof kind>, string> = { folder: "📁", pdf: "📄", image: "🖼️", video: "🎞️", audio: "🎵", text: "📝", file: "📎" };
+
+let clipboard: Clip | null = null;
+
+/** Where [e] goes when put into [folder]. */
+const into = (folder: string, e: { name: string; folder: boolean }) => folder + e.name + (e.folder ? "/" : "");
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "");
 
@@ -18,7 +23,10 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const path = viewing ? parentOf(viewing) : at;
   const folder = useFolder(path);
   const info = useDriveInfo().data;
-  const { upload, makeFolder, move, remove } = useDriveMutations();
+  const { upload, makeFolder, move, copy, remove } = useDriveMutations();
+  const [clip, setClip] = useState<Clip | null>(clipboard);
+  const keep = (c: Clip | null) => ((clipboard = c), setClip(c));
+  const [target, setTarget] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const [connect, setConnect] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -35,7 +43,9 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const run = (p: Promise<unknown>) => p.catch((e: Error) => setError(e.message));
   const send = (files: File[]) => files.length && run(upload.mutateAsync({ folder: path, files }));
   // Project folders (Projects/<name>/) follow their projects: they're renamed by renaming the project.
-  const fixed = (e: DriveEntry) => e.path.split("/").filter(Boolean).length <= 2 && e.path.startsWith("Projects/");
+  // Course files from PLMS stay as PLMS has them.
+  const fixed = (e: DriveEntry) => (e.path.split("/").filter(Boolean).length <= 2 && e.path.startsWith("Projects/")) || readOnly(e.path);
+  const locked = readOnly(path);
 
   // A folder's address written without its "/": open the folder.
   const entry = viewing ? folder.data?.entries.find((e) => e.path.replace(/\/$/, "") === viewing) : undefined;
@@ -47,14 +57,46 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setOver(false);
-    send([...e.dataTransfer.files]);
+    if (!e.dataTransfer.types.includes(DRIVE_DRAG) && !locked) send([...e.dataTransfer.files]);
   };
+
+  /** Puts a dragged or pasted entry into [folder]: moved, or copied (⌥/Alt while dropping, or a copied clip). */
+  const put = (folder: string, item: Clip) => {
+    if (folder.startsWith(item.path) || parentOf(item.path) === folder) return; // Into itself, or where it already is.
+    run(item.cut ? move.mutateAsync({ from: item.path, to: into(folder, item) }) : copy.mutateAsync({ from: item.path, to: into(folder, item) }));
+  };
+  /** Dragging an entry: within the app it moves (or copies); to the desktop (Chrome) it downloads. */
+  const dragStart = (ev: DragEvent, e: DriveEntry) => {
+    ev.dataTransfer.setData(DRIVE_DRAG, JSON.stringify({ path: e.path, name: e.name, folder: e.folder }));
+    if (!e.folder) ev.dataTransfer.setData("DownloadURL", `${e.contentType ?? "application/octet-stream"}:${e.name}:${location.origin}${fileUrl(e.path)}`);
+    ev.dataTransfer.effectAllowed = fixed(e) ? "copy" : "copyMove";
+  };
+  /** A folder that takes dropped entries (and files from the computer, uploaded into it). */
+  const dropOn = (folder: string) => (readOnly(folder) ? {} : {
+    onDragOver: (ev: DragEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.dataTransfer.dropEffect = ev.altKey || ev.dataTransfer.effectAllowed === "copy" ? "copy" : "move";
+      setTarget(folder);
+    },
+    onDragLeave: () => setTarget((t) => (t === folder ? null : t)),
+    onDrop: (ev: DragEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      setTarget(null);
+      setOver(false);
+      const raw = ev.dataTransfer.getData(DRIVE_DRAG);
+      if (raw) put(folder, { ...JSON.parse(raw), cut: !(ev.altKey || ev.dataTransfer.effectAllowed === "copy") });
+      else if (ev.dataTransfer.files.length) run(upload.mutateAsync({ folder, files: [...ev.dataTransfer.files] }));
+    },
+  }) as object;
+  const targetClass = (folder: string) => (target === folder ? (styles.target ?? "") : "");
 
   return (
     <div
       className={`${styles.page} ${over ? styles.over : ""}`}
       data-own-drop
-      onDragOver={(e) => (e.preventDefault(), setOver(true))}
+      onDragOver={(e) => (e.preventDefault(), setOver(!locked))}
       onDragLeave={(e) => e.currentTarget === e.target && setOver(false)}
       onDrop={onDrop}
     >
@@ -65,22 +107,38 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
           </button>
         )}
         <nav className={styles.crumbs} aria-label="Folder">
-          <button onClick={() => go(root)}>{rootName}</button>
+          <button className={targetClass(root)} onClick={() => go(root)} {...dropOn(root)}>
+            {rootName}
+          </button>
           {parts.map((p, i) => (
             <span key={i}>
               <span className={styles.sep}>›</span>
-              <button onClick={() => go(root + parts.slice(0, i + 1).join("/") + "/")}>{p}</button>
+              <button className={targetClass(root + parts.slice(0, i + 1).join("/") + "/")} onClick={() => go(root + parts.slice(0, i + 1).join("/") + "/")} {...dropOn(root + parts.slice(0, i + 1).join("/") + "/")}>
+                {p}
+              </button>
             </span>
           ))}
         </nav>
         <span className={styles.spacer} />
         {upload.isPending && <span className={styles.note}>Uploading…</span>}
-        <label className="btn">
+        {locked && <span className={styles.note}>From PLMS · read-only (copy files out to write on them)</span>}
+        {clip && !locked && (
+          <span className={styles.clip}>
+            <button className="btn" onClick={() => (put(path, clip), clip.cut && keep(null))} title={`${clip.cut ? "Move" : "Copy"} ${clip.name} here`}>
+              Paste “{clip.name}”
+            </button>
+            <button className="btn btn-ghost" onClick={() => keep(null)} aria-label="Clear clipboard">
+              ×
+            </button>
+          </span>
+        )}
+        <label className={`btn ${locked ? styles.disabled : ""}`}>
           Upload
-          <input type="file" multiple hidden onChange={(e) => (send([...(e.target.files ?? [])]), (e.target.value = ""))} />
+          <input type="file" multiple hidden disabled={locked} onChange={(e) => (send([...(e.target.files ?? [])]), (e.target.value = ""))} />
         </label>
         <button
           className="btn"
+          disabled={locked}
           onClick={() => {
             const name = prompt("Folder name")?.trim();
             if (name) run(makeFolder.mutateAsync(path + name.replace(/\//g, " ")));
@@ -118,7 +176,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
       <div className={styles.body}>
       {tree && (
         <nav className={styles.tree} aria-label="Folders">
-          <TreeNode path={root} name={rootName} depth={0} current={path} go={go} />
+          <TreeNode path={root} name={rootName} depth={0} current={path} go={go} dropOn={dropOn} targetClass={targetClass} />
         </nav>
       )}
       {view === "icons" ? (
@@ -127,12 +185,12 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
           {folder.data && folder.data.entries.length === 0 && <p className={styles.note}>Nothing here yet. Drop files here to upload them.</p>}
           {folder.data?.entries.map((e) =>
             e.folder ? (
-              <button key={e.path} className={styles.tile} onClick={() => go(e.path)} title={e.name}>
+              <button key={e.path} className={`${styles.tile} ${targetClass(e.path)}`} onClick={() => go(e.path)} title={e.name} draggable onDragStart={(ev) => dragStart(ev, e)} {...dropOn(e.path)}>
                 <span className={styles.tileIcon}>{ICON.folder}</span>
                 <span className={styles.tileName}>{e.name}</span>
               </button>
             ) : (
-              <button key={e.path} className={styles.tile} onClick={() => go(e.path)} title={e.name}>
+              <button key={e.path} className={styles.tile} onClick={() => go(e.path)} title={e.name} draggable onDragStart={(ev) => dragStart(ev, e)}>
                 {kind(e) === "image" ? (
                   <img className={styles.thumb} src={fileUrl(e.path)} alt="" loading="lazy" />
                 ) : kind(e) === "pdf" ? (
@@ -152,7 +210,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
         {folder.isError && <p className={styles.error}>Couldn't open this folder.</p>}
         {folder.data && folder.data.entries.length === 0 && <p className={styles.note}>Nothing here yet. Drop files here to upload them.</p>}
         {folder.data?.entries.map((e) => (
-          <div key={e.path} className={styles.row}>
+          <div key={e.path} className={`${styles.row} ${e.folder ? targetClass(e.path) : ""}`} draggable={renaming !== e.path} onDragStart={(ev) => dragStart(ev, e)} {...(e.folder ? dropOn(e.path) : {})}>
             <span className={styles.icon}>{ICON[kind(e)]}</span>
             {renaming === e.path ? (
               <input
@@ -182,6 +240,14 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
                 <a className="btn btn-ghost" href={fileUrl(e.path)} download={e.name}>
                   Download
                 </a>
+              )}
+              <button className="btn btn-ghost" onClick={() => keep({ path: e.path, name: e.name, folder: e.folder, cut: false })} title="Copy, to paste into another folder">
+                Copy
+              </button>
+              {!fixed(e) && confirm !== e.path && (
+                <button className="btn btn-ghost" onClick={() => keep({ path: e.path, name: e.name, folder: e.folder, cut: true })} title="Cut, to move into another folder">
+                  Cut
+                </button>
               )}
               {!fixed(e) &&
                 (confirm === e.path ? (
@@ -225,7 +291,9 @@ function PdfThumb({ entry }: { entry: DriveEntry }) {
 }
 
 /** One folder in the tree: click to open it, the arrow to show what's inside (remembered). */
-function TreeNode({ path, name, depth, current, go }: { path: string; name: string; depth: number; current: string; go: (path: string) => void }) {
+type Drops = { dropOn: (folder: string) => object; targetClass: (folder: string) => string };
+
+function TreeNode({ path, name, depth, current, go, ...drops }: { path: string; name: string; depth: number; current: string; go: (path: string) => void } & Drops) {
   const key = `files.open.${path}`;
   const [open, setOpen] = useState(() => depth === 0 || current.startsWith(path) || localStorage.getItem(key) === "1");
   useEffect(() => {
@@ -239,7 +307,7 @@ function TreeNode({ path, name, depth, current, go }: { path: string; name: stri
   };
   return (
     <div>
-      <div className={`${styles.treeRow} ${current === path ? styles.treeOn : ""}`} style={{ paddingLeft: 6 + depth * 14 }}>
+      <div className={`${styles.treeRow} ${current === path ? styles.treeOn : ""} ${drops.targetClass(path)}`} style={{ paddingLeft: 6 + depth * 14 }} {...drops.dropOn(path)}>
         <button className={styles.arrow} onClick={toggle} aria-label={open ? "Collapse" : "Expand"}>
           {open ? "▾" : "▸"}
         </button>
@@ -247,7 +315,7 @@ function TreeNode({ path, name, depth, current, go }: { path: string; name: stri
           {name}
         </button>
       </div>
-      {open && folders.map((f) => <TreeNode key={f.path} path={f.path} name={f.name} depth={depth + 1} current={current} go={go} />)}
+      {open && folders.map((f) => <TreeNode key={f.path} path={f.path} name={f.name} depth={depth + 1} current={current} go={go} {...drops} />)}
     </div>
   );
 }
