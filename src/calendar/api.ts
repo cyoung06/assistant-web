@@ -23,9 +23,18 @@ export function useEvent(id: string | null) {
   });
 }
 
+/** A project's calendar: its repeating events summed up, and the next four weeks' one-off events and skipped dates. */
+export function useProjectSchedule(projectId: string) {
+  return useQuery({
+    queryKey: ["schedule", projectId],
+    queryFn: async () => unwrap(await api.GET("/api/v1/projects/{id}/schedule", { params: { path: { id: projectId }, query: { days: 28 } } })),
+  });
+}
+
 export function useEventMutations() {
   const qc = useQueryClient();
-  const done = () => Promise.all([qc.invalidateQueries({ queryKey: ["events"] }), qc.invalidateQueries({ queryKey: ["event"] })]);
+  const done = () =>
+    Promise.all([qc.invalidateQueries({ queryKey: ["events"] }), qc.invalidateQueries({ queryKey: ["event"] }), qc.invalidateQueries({ queryKey: ["schedule"] })]);
   return {
     create: useMutation({
       mutationFn: async (body: CreateEvent) => unwrap(await api.POST("/api/v1/events", { body })),

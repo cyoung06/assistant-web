@@ -372,6 +372,22 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/api/v1/projects/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["projectSchedule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public-tokens": {
         parameters: {
             query?: never;
@@ -677,6 +693,8 @@ export interface components {
             /** Format: date */
             endDate?: string | null;
             notes?: string;
+            /** Format: uuid */
+            projectId?: string | null;
             repeat?: components["schemas"]["RepeatDto"] | null;
             /** Format: date-time */
             start?: string | null;
@@ -745,6 +763,8 @@ export interface components {
             endDate?: string | null;
             fixed: boolean;
             id: string;
+            /** Format: uuid */
+            projectId?: string | null;
             repeats: boolean;
             /** Format: date-time */
             start?: string | null;
@@ -764,6 +784,8 @@ export interface components {
             fixed: boolean;
             id: string;
             notes: string;
+            /** Format: uuid */
+            projectId?: string | null;
             repeat?: components["schemas"]["RepeatDto"] | null;
             repeats: boolean;
             /** Format: date-time */
@@ -892,6 +914,11 @@ export interface components {
             /** Format: int32 */
             taskCount: number;
         };
+        ProjectSchedule: {
+            recurring: components["schemas"]["RecurringSummary"][];
+            skipped: components["schemas"]["SkippedOccurrence"][];
+            upcoming: components["schemas"]["EventOccurrence"][];
+        };
         Proposal: {
             description: string;
             due?: components["schemas"]["DueDto"] | null;
@@ -923,6 +950,19 @@ export interface components {
             /** Format: double */
             usedPercent: number;
         };
+        RecurringSummary: {
+            /** Format: time-local */
+            end?: string | null;
+            eventId: string;
+            /** @enum {string} */
+            freq: "daily" | "weekly" | "monthly";
+            /** Format: int32 */
+            interval: number;
+            /** Format: time-local */
+            start?: string | null;
+            title: string;
+            weekdays: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
+        };
         Ref: {
             context?: string | null;
             /** Format: date-time */
@@ -950,6 +990,12 @@ export interface components {
             /** Format: date */
             until?: string | null;
             weekdays?: ("MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY")[];
+        };
+        SkippedOccurrence: {
+            /** Format: date */
+            date: string;
+            eventId: string;
+            title: string;
         };
         SourceStatus: {
             displayName: string;
@@ -1864,6 +1910,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+        };
+    };
+    projectSchedule: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSchedule"];
                 };
             };
         };

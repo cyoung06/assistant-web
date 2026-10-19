@@ -267,3 +267,55 @@
     display: none;
   }
 }
+
+/* A project's schedule: repeating events as a line each, then what's coming up */
+.schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 16px 10px;
+  font-size: var(--text-sm);
+}
+.scheduleLine {
+  align-self: flex-start;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.scheduleLine:hover {
+  color: var(--text);
+}
+.upcoming {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.upcoming a {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+  color: var(--text);
+  text-decoration: none;
+}
+.upcoming a:hover .upTitle {
+  text-decoration: underline;
+}
+.upDate {
+  width: 92px;
+  color: var(--text-2);
+}
+.upTime {
+  width: 40px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.upTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upcoming .skippedItem {
+  color: var(--text-3);
+}

@@ -225,7 +225,7 @@
       for (const x of picks.filter((x) => x.keep)) {
         const p = x.p;
         const description = [p.description, note].filter(Boolean).join("\n\n");
-        if (p.kind === "event") await api("events", { title: x.title, notes: description, start: p.start, end: p.end, startDate: p.startDate, endDate: p.endDate });
+        if (p.kind === "event") await api("events", { title: x.title, notes: description, start: p.start, end: p.end, startDate: p.startDate, endDate: p.endDate, projectId: p.projectId });
         else await api("tasks", { title: x.title, description, due: p.due, projectId: p.projectId, priority: p.priority || "none" });
         n++;
       }

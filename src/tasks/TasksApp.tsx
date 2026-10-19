@@ -6,6 +6,7 @@ import { useTasksUi } from "./context";
 import { InitiativePage, InitiativePicker, InitiativesPage, sortInitiatives, StatusMark } from "./Initiatives";
 import { closedGroup, groupTasks, GROUPINGS, ORDERINGS, type Grouping, type Ordering } from "./model";
 import { PROJECT_STATES, ProjectRow } from "./ProjectRow";
+import { ProjectSchedule } from "./ProjectSchedule";
 import { TaskList } from "./TaskList";
 import styles from "./TasksApp.module.css";
 
@@ -263,58 +264,61 @@ function ProjectHeader({ project: p, back, openInitiative }: { project: Project 
   if (!p) return null;
   const pct = p.taskCount ? Math.round((p.doneCount / p.taskCount) * 100) : 0;
   return (
-    <div className={styles.projectHead}>
-      <button className={styles.back} onClick={back}>
-        Projects ›
-      </button>
-      <input
-        aria-label="Project color"
-        type="color"
-        className={styles.color}
-        value={p.color}
-        onChange={(e) => update.mutate({ id: p.id, color: e.target.value.toUpperCase() })}
-      />
-      <input
-        key={p.name}
-        className={styles.projectTitle}
-        defaultValue={p.name}
-        aria-label="Project name"
-        onBlur={(e) => e.target.value.trim() && e.target.value !== p.name && update.mutate({ id: p.id, name: e.target.value.trim() })}
-        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      />
-      <select id="project-state" className={`input ${styles.stateSelect}`} value={p.state} onChange={(e) => update.mutate({ id: p.id, state: e.target.value as ProjectState })}>
-        {PROJECT_STATES.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-      <span className={styles.pct}>
-        {pct}% · {p.doneCount}/{p.taskCount} done
-      </span>
-      <InitiativePicker project={p} openInitiative={openInitiative} />
-      <span className={styles.spacer} />
-      {confirm ? (
-        <>
-          <span className={styles.note}>Delete the project? Its tasks stay.</span>
-          <button
-            className="btn btn-danger"
-            onClick={() => {
-              remove.mutate(p.id);
-              back();
-            }}
-          >
-            Delete
-          </button>
-          <button className="btn btn-ghost" onClick={() => setConfirm(false)}>
-            Keep
-          </button>
-        </>
-      ) : (
-        <button className="btn btn-ghost" onClick={() => setConfirm(true)}>
-          Delete project
+    <>
+      <div className={styles.projectHead}>
+        <button className={styles.back} onClick={back}>
+          Projects ›
         </button>
-      )}
-    </div>
+        <input
+          aria-label="Project color"
+          type="color"
+          className={styles.color}
+          value={p.color}
+          onChange={(e) => update.mutate({ id: p.id, color: e.target.value.toUpperCase() })}
+        />
+        <input
+          key={p.name}
+          className={styles.projectTitle}
+          defaultValue={p.name}
+          aria-label="Project name"
+          onBlur={(e) => e.target.value.trim() && e.target.value !== p.name && update.mutate({ id: p.id, name: e.target.value.trim() })}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+        <select id="project-state" className={`input ${styles.stateSelect}`} value={p.state} onChange={(e) => update.mutate({ id: p.id, state: e.target.value as ProjectState })}>
+          {PROJECT_STATES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <span className={styles.pct}>
+          {pct}% · {p.doneCount}/{p.taskCount} done
+        </span>
+        <InitiativePicker project={p} openInitiative={openInitiative} />
+        <span className={styles.spacer} />
+        {confirm ? (
+          <>
+            <span className={styles.note}>Delete the project? Its tasks stay.</span>
+            <button
+              className="btn btn-danger"
+              onClick={() => {
+                remove.mutate(p.id);
+                back();
+              }}
+            >
+              Delete
+            </button>
+            <button className="btn btn-ghost" onClick={() => setConfirm(false)}>
+              Keep
+            </button>
+          </>
+        ) : (
+          <button className="btn btn-ghost" onClick={() => setConfirm(true)}>
+            Delete project
+          </button>
+        )}
+      </div>
+      <ProjectSchedule projectId={p.id} projectName={p.name} />
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CalendarEvent, Repeat } from "../api/client";
 import { addDays, formatDay, toDateString, toTimeString } from "../lib/dates";
+import { useProjects } from "../tasks/api";
 import { useEvent, useEventMutations } from "./api";
 import { Markdown } from "../refs/Markdown";
 import { MentionField } from "../refs/MentionField";
@@ -32,6 +33,8 @@ interface Form {
   startTime: string;
   endTime: string;
   repeats: boolean;
+  /** "" for none. */
+  projectId: string;
   repeat: Required<Pick<Repeat, "freq" | "interval" | "weekdays" | "skipped">> & { until: string };
 }
 
@@ -48,7 +51,7 @@ function formFor(target: EventTarget, e: CalendarEvent | undefined): Form {
     const lastDay = target.allDay ? addDays(toDateString(target.end), -1) : date;
     return {
       title: "", notes: "", allDay: target.allDay, date, endDate: lastDay,
-      startTime: toTimeString(target.start), endTime: toTimeString(target.end), repeats: false, repeat: blankRepeat(date),
+      startTime: toTimeString(target.start), endTime: toTimeString(target.end), repeats: false, projectId: "", repeat: blankRepeat(date),
     };
   }
   const start = e?.start ? new Date(e.start) : null;
@@ -63,6 +66,7 @@ function formFor(target: EventTarget, e: CalendarEvent | undefined): Form {
     startTime: start ? toTimeString(start) : "09:00",
     endTime: end ? toTimeString(end) : "10:00",
     repeats: !!e?.repeat,
+    projectId: e?.projectId ?? "",
     repeat: e?.repeat
       ? { freq: e.repeat.freq ?? "weekly", interval: e.repeat.interval ?? 1, weekdays: e.repeat.weekdays ?? [], skipped: e.repeat.skipped ?? [], until: e.repeat.until ?? "" }
       : blankRepeat(date),
@@ -76,6 +80,7 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
   const [form, setForm] = useState<Form | null>(target.kind === "new" ? formFor(target, undefined) : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { create, patch, remove } = useEventMutations();
+  const projects = (useProjects().data ?? []).filter((p) => (p.state !== "completed" && p.state !== "canceled") || p.id === form?.projectId);
   const set = (p: Partial<Form>) => setForm((f) => f && { ...f, ...p });
   const setRepeat = (p: Partial<Form["repeat"]>) => setForm((f) => f && { ...f, repeat: { ...f.repeat, ...p } });
 
@@ -101,13 +106,13 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
     const repeat: Repeat | null = f.repeats
       ? { freq: f.repeat.freq, interval: f.repeat.interval, weekdays: f.repeat.freq === "weekly" ? f.repeat.weekdays : [], until: f.repeat.until || null, skipped: f.repeat.skipped }
       : null;
-    return { title: f.title.trim(), notes: f.notes, ...time, ...(foreignRule ? {} : { repeat }) };
+    return { title: f.title.trim(), notes: f.notes, ...time, projectId: f.projectId || null, ...(foreignRule ? {} : { repeat }) };
   };
 
   const save = async () => {
     if (!form || !form.title.trim()) return;
     if (!form.allDay && form.endTime <= form.startTime) return;
-    if (target.kind === "new") await create.mutateAsync({ ...body(form), repeat: body(form).repeat ?? undefined });
+    if (target.kind === "new") await create.mutateAsync({ ...body(form), repeat: body(form).repeat ?? undefined, projectId: body(form).projectId ?? undefined });
     else await patch.mutateAsync({ id: target.id, patch: body(form) });
     onClose();
   };
@@ -165,6 +170,18 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
                 )}
               </div>
               {!form.allDay && form.endTime <= form.startTime && <p className={styles.warn}>End must be after start.</p>}
+
+              <div className={styles.row}>
+                <span>Project</span>
+                <select id="event-project" className="input" value={form.projectId} onChange={(ev) => set({ projectId: ev.target.value })}>
+                  <option value="">None</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {foreignRule ? (
                 <p className={styles.note}>Repeats by a rule set in another app; edit the rule there.</p>

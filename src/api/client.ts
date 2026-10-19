@@ -45,6 +45,7 @@ export type EventPatch = Partial<{
   startDate: string;
   endDate: string;
   repeat: Repeat | null;
+  projectId: string | null;
 }>;
 
 /** An error response from the API (RFC 9457 problem details). */
