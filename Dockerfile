@@ -13,4 +13,4 @@ ENV API_UPSTREAM=http://assistant-api:8080
 ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /src/dist /usr/share/nginx/html
-EXPOSE 8080
+EXPOSE 8080 8081
