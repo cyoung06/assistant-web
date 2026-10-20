@@ -11,11 +11,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import "katex/dist/katex.min.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
+import { drafts } from "./drafts";
 import { freshNotes } from "./fresh";
 import { livePreview } from "./livePreview";
+import { openNotes } from "./open";
 import { applyTemplate, SLASH_ITEMS, toggleWrap } from "./md";
 import styles from "./NoteEditor.module.css";
-import type { NoteStatus as Status, NoteStore, Version } from "./store";
+import { strongTag, type NoteStatus as Status, type NoteStore, type Version } from "./store";
 import { webStore } from "./webStore";
 
 const STATUS: Record<Status, string> = {
@@ -155,8 +157,8 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
   return <Note path={path} store={store} locked={readOnly(path)} entry={entry} />;
 }
 
-/** What a host can do to an open note. */
-export type NoteControls = { flush: () => Promise<void>; setSource: (on: boolean) => void };
+/** What a host can do to an open note. [flush] is true once everything typed is written. */
+export type NoteControls = { flush: () => Promise<boolean>; setSource: (on: boolean) => void };
 
 /**
  * A note, read and written through [store]. [embedded] (in a native app) leaves out the bar: the
@@ -198,7 +200,10 @@ export function Note({
     let dirty = false;
     let saving: Promise<void> | null = null;
     let timer: number | undefined;
+    let keepTimer: number | undefined;
     let conflicted = false;
+    /** Deleted: nothing's written back. */
+    let gone = false;
     const folder = parentOf(path);
     const mode = new Compartment();
     const set = (s: Status, message?: string) => {
@@ -207,24 +212,34 @@ export function Note({
       store.status?.(s, message);
     };
 
-    /** Writes the note; with [force], even over a version written elsewhere. */
-    const save = async (force = false): Promise<void> => {
-      if (!view || locked || (!dirty && !force) || (conflicted && !force)) return;
-      if (saving) return saving.then(() => save(force));
+    /** Keeps what's unsaved as a draft (in case it never gets written); none once it's all written. */
+    const keep = () => {
+      window.clearTimeout(keepTimer);
+      if (!view || locked || gone) return;
+      if (dirty || conflicted) drafts.put(path, { text: view.state.doc.toString(), base: version, at: Date.now() });
+      else drafts.clear(path);
+    };
+
+    /** Writes the note; with [force], even over a version written elsewhere; [closing]: the page is going away. */
+    const save = async (force = false, closing = false): Promise<void> => {
+      if (!view || locked || gone || (!dirty && !force) || (conflicted && !force)) return;
+      if (saving) return saving.then(() => save(force, closing));
       const text = view.state.doc.toString();
       dirty = false;
       set("saving");
       saving = (async () => {
         try {
-          const done = await store.write(path, text, version, force);
+          const done = await store.write(path, text, version, force, closing);
           if ("conflict" in done) throw Object.assign(new Error("conflict"), { conflict: true });
           version = done.version;
           conflicted = false;
           setError(null);
           set(dirty ? "unsaved" : "saved");
+          keep();
           store.saved?.(path);
         } catch (e) {
           dirty = true;
+          keep();
           if ((e as { conflict?: boolean }).conflict) {
             conflicted = true;
             set("conflict");
@@ -249,6 +264,27 @@ export function Note({
       const head = Math.min(view.state.selection.main.head, text.length);
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: head }, annotations: loaded.of(true) });
       dirty = false;
+    };
+
+    /**
+     * A draft left from before (unsaved when the note was last left): shown instead of [text], to
+     * be saved; if the note changed since the draft's version, as a conflict to settle.
+     */
+    const restore = (text: string) => {
+      const draft = locked ? null : drafts.get(path);
+      if (!draft || !view) return;
+      if (draft.text === text) return drafts.clear(path);
+      replace(draft.text);
+      dirty = true;
+      const same = (draft.base.etag && version.etag ? strongTag(draft.base.etag) === strongTag(version.etag) : draft.base.modified === version.modified);
+      if (same) {
+        set("unsaved");
+        later();
+      } else {
+        version = draft.base;
+        conflicted = true;
+        set("conflict");
+      }
     };
 
     /** Coming back to the page: a note not being edited shows what's there now. */
@@ -328,10 +364,12 @@ export function Note({
               EditorView.updateListener.of((u) => {
                 if (!u.docChanged || locked || u.transactions.every((tr) => tr.annotation(loaded))) return;
                 dirty = true;
+                window.clearTimeout(keepTimer);
+                keepTimer = window.setTimeout(keep, 300);
                 if (!conflicted) (set("unsaved"), later());
               }),
               EditorView.domEventHandlers({
-                blur: () => void save(),
+                blur: () => (keep(), void save()),
                 paste: (e, v) => {
                   const files = imagesIn(e.clipboardData);
                   if (!files.length || locked) return false;
@@ -358,6 +396,7 @@ export function Note({
         // For checking it in a browser while developing.
         if (import.meta.env.DEV) (window as unknown as { __noteView?: EditorView }).__noteView = view;
         set(locked ? "readonly" : "saved");
+        restore(text);
         // A note just made: its title selected, to type over.
         if (freshNotes.delete(path)) {
           const first = view.state.doc.line(1);
@@ -381,6 +420,7 @@ export function Note({
           replace(fresh.text);
           version = fresh.version;
           conflicted = false;
+          drafts.clear(path);
           set("saved");
         }),
       saveCopy: () =>
@@ -395,15 +435,29 @@ export function Note({
           replace(fresh.text);
           version = fresh.version;
           conflicted = false;
+          drafts.clear(path);
           set("saved");
           store.saved?.(path);
         })(),
     };
-    onControlsRef.current?.({
-      flush: async () => {
+    /** Writes what's unsaved now; true once everything typed is written (false: it's kept as a draft). */
+    const flush = async () => {
+      window.clearTimeout(timer);
+      keep();
+      await save();
+      return locked || gone || (!dirty && !conflicted);
+    };
+    openNotes.set(path, {
+      flush,
+      stop: (stopped) => {
+        gone = stopped;
         window.clearTimeout(timer);
-        await save();
+        window.clearTimeout(keepTimer);
+        if (!stopped && dirty && !conflicted) later();
       },
+    });
+    onControlsRef.current?.({
+      flush,
       setSource: (on) => {
         controls.current?.setSource(on);
         setSource(on);
@@ -411,23 +465,33 @@ export function Note({
     });
 
     const onFocus = () => void recheck();
-    const onHide = () => document.visibilityState === "hidden" && void save();
-    const onUnload = () => void save();
+    const onHide = () => document.visibilityState === "hidden" && (keep(), void save());
+    const onUnload = () => (keep(), void save(false, true));
+    // Closing the tab while something isn't written: the browser asks first (it's kept as a draft either way).
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (embedded || locked || gone || !(dirty || saving || conflicted)) return;
+      keep();
+      e.preventDefault();
+    };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", onUnload);
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       alive = false;
       window.clearTimeout(timer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onUnload);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (openNotes.get(path)?.flush === flush) openNotes.delete(path);
       unwatch?.();
-      // Leaving the note: what's unsaved goes now.
+      // Leaving the note: what's unsaved is kept as a draft, and goes now.
+      keep();
       void save();
       view?.destroy();
     };
-  }, [path, locked, store]);
+  }, [path, locked, store, embedded]);
 
   return (
     <div className={styles.note}>

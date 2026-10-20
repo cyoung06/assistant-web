@@ -34,10 +34,18 @@ export function useDriveMutations() {
     if (!res.ok) throw new Error((await res.json().catch(() => null))?.detail ?? `Failed (${res.status})`);
   };
   return {
+    /** Files into [folder], each numbered if its name is taken (never replacing what's there); their names. */
     upload: useMutation({
       mutationFn: async ({ folder, files }: { folder: string; files: File[] }) => {
-        for (const f of files) await check(await fetch(fileUrl(folder + f.name), { method: "PUT", body: f, headers: { "Content-Type": f.type || "application/octet-stream" } }));
+        const names: string[] = [];
+        for (const f of files) names.push(await createFile(folder, f.name, () => f, f.type || "application/octet-stream"));
+        return names;
       },
+      onSettled: refresh,
+    }),
+    /** A new file (numbered if its name is taken); its name. */
+    create: useMutation({
+      mutationFn: ({ folder, name, body, type }: { folder: string; name: string; body: (name: string) => BodyInit; type: string }) => createFile(folder, name, body, type),
       onSettled: refresh,
     }),
     makeFolder: useMutation({
@@ -137,7 +145,25 @@ export const folderEntry = (path: string, name?: string): DriveEntry => ({
   size: 0,
 });
 
-/** [name] in [folder], numbered ("Notes (2).md") if something there is already called that. */
+/**
+ * Makes a new file in [folder] called [name], or "name (2).ext" and so on if that's taken: written
+ * with If-None-Match: *, so it never replaces a file that's there (a 412 tries the next name).
+ * [body] is its contents, given the name it gets. Its name.
+ */
+export async function createFile(folder: string, name: string, body: (name: string) => BodyInit, type: string): Promise<string> {
+  const dot = name.lastIndexOf(".");
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  for (let n = 1; n <= 100; n++) {
+    const at = n === 1 ? name : `${stem} (${n})${ext}`;
+    const res = await fetch(fileUrl(folder + at), { method: "PUT", headers: { "Content-Type": type, "If-None-Match": "*" }, body: body(at) });
+    if (res.status === 412) continue;
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.detail ?? `Couldn't make ${at} (${res.status})`);
+    return at;
+  }
+  throw new Error(`No free name for ${name}`);
+}
+
+/** [name] in [folder], numbered ("Notes (2)") if something there is already called that (for folders; files use [createFile]). */
 export async function freeName(folder: string, name: string) {
   const res = await api.GET("/api/v1/drive/folder", { params: { query: { path: folder } } });
   const taken = new Set((res.data?.entries ?? []).map((e) => e.name));

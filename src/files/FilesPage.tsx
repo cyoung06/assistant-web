@@ -20,7 +20,9 @@ import { Ask, ContextMenu, type MenuAction } from "./ContextMenu";
 import { Explorer, ICON, type Ops } from "./Explorer";
 import { FileViewer } from "./FileViewer";
 import { FolderView } from "./FolderView";
+import { drafts } from "../notes/drafts";
 import { freshNotes } from "../notes/fresh";
+import { flushNotes, stopNotes } from "../notes/open";
 import styles from "./FilesPage.module.css";
 
 let clipboard: Clip | null = null;
@@ -78,7 +80,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const narrow = useNarrow();
   const folder = useFolder(path);
   const info = useDriveInfo().data;
-  const { upload, makeFolder, move, copy, remove } = useDriveMutations();
+  const { upload, create, makeFolder, move, copy, remove } = useDriveMutations();
   const known = useRef(new Map<string, DriveEntry>()).current;
 
   const [clip, setClip] = useState<Clip | null>(clipboard);
@@ -152,13 +154,18 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     if (selected?.startsWith(from)) setSelected(null);
   };
 
+  /** Before moving [path]: its open notes written (a move with something unwritten would lose it, or make the old file again). */
+  const settle = async (path: string) => {
+    if (!(await flushNotes(path))) throw new Error("A note there has changes that aren't saved yet (they're kept); settle them first.");
+  };
+
   /** Puts an entry into [folder]: moved (a cut, or a drag), or copied (numbered if the name's taken). */
   const put = (folder: string, item: Clip) => {
     if (folder.startsWith(item.path)) return; // Into itself.
     if (item.cut) {
       if (parentOf(item.path) === folder) return; // Already there.
       const to = into(folder, item);
-      return run(move.mutateAsync({ from: item.path, to }).then(() => moved(item.path, to)));
+      return run(settle(item.path).then(() => move.mutateAsync({ from: item.path, to })).then(() => moved(item.path, to)));
     }
     run(copy.mutateAsync({ from: item.path, to: into(folder, item) }));
   };
@@ -184,11 +191,12 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
         done: (typed) =>
           run(
             (async () => {
-              const name = await freeName(dest, typed.includes(".") ? typed : typed + ".md");
+              const wanted = typed.includes(".") ? typed : typed + ".md";
+              const note = /\.(md|markdown)$/i.test(wanted);
               // Not empty: a Markdown note starts with its title.
-              const body = /\.(md|markdown)$/i.test(name) ? `# ${name.replace(/\.[^.]+$/, "")}\n\n` : "\n";
-              await upload.mutateAsync({ folder: dest, files: [new File([body], name, { type: /\.md$/i.test(name) ? "text/markdown" : "text/plain" })] });
-              open({ path: dest + name, name, folder: false, size: body.length }, true);
+              const body = (name: string) => (note ? `# ${name.replace(/\.[^.]+$/, "")}\n\n` : "\n");
+              const name = await create.mutateAsync({ folder: dest, name: wanted, body, type: note ? "text/markdown; charset=utf-8" : "text/plain; charset=utf-8" });
+              open({ path: dest + name, name, folder: false, size: body(name).length }, true);
             })(),
           ),
       }),
@@ -196,11 +204,10 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     newNote: (dest: string) =>
       run(
         (async () => {
-          const name = await freeName(dest, "Untitled.md");
-          const body = `# ${name.replace(/\.md$/, "")}\n\n`;
-          await upload.mutateAsync({ folder: dest, files: [new File([body], name, { type: "text/markdown" })] });
+          const body = (name: string) => `# ${name.replace(/\.md$/, "")}\n\n`;
+          const name = await create.mutateAsync({ folder: dest, name: "Untitled.md", body, type: "text/markdown; charset=utf-8" });
           freshNotes.add(dest + name);
-          open({ path: dest + name, name, folder: false, size: body.length }, true);
+          open({ path: dest + name, name, folder: false, size: body(name).length }, true);
         })(),
       ),
     upload: (dest: string) => ((uploadTo.current = dest), picker.current?.click()),
@@ -209,7 +216,11 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
         title: `Delete “${e.name}”${e.folder ? " and everything in it" : ""}?`,
         confirm: "Delete",
         danger: true,
-        done: () => run(remove.mutateAsync(e.path).then(() => moved(e.path, null))),
+        done: () => {
+          // Its open notes write nothing back (that would make it again); if the delete fails, they carry on.
+          const resume = stopNotes(e.path);
+          run(remove.mutateAsync(e.path).then(() => (drafts.clearUnder(e.path), moved(e.path, null)), (err) => (resume(), Promise.reject(err))));
+        },
       }),
     duplicate: (e: DriveEntry) => run(copy.mutateAsync({ from: e.path, to: e.path })),
   };
@@ -250,7 +261,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     const name = typed?.trim().replace(/\//g, " ");
     if (!name || name === e.name) return;
     const to = parentOf(e.path) + name + (e.folder ? "/" : "");
-    run(move.mutateAsync({ from: e.path, to }).then(() => moved(e.path, to)));
+    run(settle(e.path).then(() => move.mutateAsync({ from: e.path, to })).then(() => moved(e.path, to)));
   };
 
   /** Dragging an entry: within the app it moves (or copies); to the desktop (Chrome) it downloads. */

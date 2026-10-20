@@ -6,8 +6,11 @@
 export interface NoteStore {
   /** The note as it's written now. */
   read(path: string): Promise<Loaded>;
-  /** Writes the note, unless it changed since [version]; with [force], over whatever is there. */
-  write(path: string, text: string, version: Version, force: boolean): Promise<{ version: Version } | { conflict: true }>;
+  /**
+   * Writes the note, unless it changed since [version]; with [force], over whatever is there.
+   * [closing]: the page is going away (a browser can still send a small request then).
+   */
+  write(path: string, text: string, version: Version, force: boolean, closing?: boolean): Promise<{ version: Version } | { conflict: true }>;
   /** Writes [text] beside the note as a copy (a name that's free); the copy's name. */
   saveCopy(path: string, text: string): Promise<string>;
   /** Puts an image (pasted or dropped into the note) beside it; the link to it, relative to the note's folder. */

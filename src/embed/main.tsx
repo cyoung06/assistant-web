@@ -20,8 +20,8 @@ export interface EditorApi {
   open(args: OpenArgs): void;
   setTheme(theme: Theme): void;
   setSource(on: boolean): void;
-  /** Saves what's unsaved now (e.g. before the app goes to the background). */
-  flush(): Promise<void>;
+  /** Saves what's unsaved now (e.g. before the app goes to the background); true once it's all written (else it's kept as a draft here). */
+  flush(): Promise<boolean>;
   /** A newer version the host found: shown if the note isn't being edited. */
   reloadIfUnchanged(args: { text: string; etag: string | null }): void;
   /** Android: the answer to request [id] (its JSON), or with [error], its failure. */
@@ -116,14 +116,15 @@ const api: EditorApi = {
     if (args.theme) setTheme(args.theme);
     images.clear();
     // What's unsaved in the note open now goes first.
-    void (controls?.flush() ?? Promise.resolve()).finally(() => {
+    // (If it can't be written now, it's kept as a draft and offered when that note is opened again.)
+    void (controls?.flush() ?? Promise.resolve(true)).finally(() => {
       controls = null;
       show(args);
     });
   },
   setTheme,
   setSource: (on) => controls?.setSource(on),
-  flush: () => controls?.flush() ?? Promise.resolve(),
+  flush: () => controls?.flush() ?? Promise.resolve(true),
   reloadIfUnchanged: ({ text, etag }) => onNewer?.({ text, version: { etag, modified: null } }),
   _reply: (id, json, error) => bridge.reply(id, json, error),
 };

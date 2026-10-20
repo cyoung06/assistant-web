@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import { fileUrl, freeName, parentOf, type DriveEntry } from "../files/api";
+import { createFile, fileUrl, parentOf, type DriveEntry } from "../files/api";
 import { pastedName, relativeTo } from "./md";
 import { strongTag, type Loaded, type NoteStore } from "./store";
 
@@ -25,7 +25,7 @@ export function webStore(qc: QueryClient, openPath: (path: string) => void): Not
   return {
     read,
 
-    async write(path, text, version, force) {
+    async write(path, text, version, force, closing) {
       const headers: Record<string, string> = { "Content-Type": "text/markdown; charset=utf-8" };
       if (!force && version.etag) headers["If-Match"] = strongTag(version.etag);
       // Without ETags (an older server), the folder listing's modified time tells.
@@ -34,7 +34,11 @@ export function webStore(qc: QueryClient, openPath: (path: string) => void): Not
         if (now && now !== version.modified) return conflict;
       }
       // An empty body may be refused by older servers; an empty note is a newline.
-      const res = await fetch(fileUrl(path), { method: "PUT", headers, body: text || "\n", keepalive: text.length < 60_000 });
+      // As the page closes, only a keepalive request still goes, and browsers take those up to 64 KiB
+      // (in bytes); a longer note waits in its draft for the next time it's opened.
+      const body = text || "\n";
+      const keepalive = !!closing && new TextEncoder().encode(body).length < 60_000;
+      const res = await fetch(fileUrl(path), { method: "PUT", headers, body, keepalive });
       if (res.status === 412) return conflict;
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.detail ?? `Failed (${res.status})`);
       const etag = res.headers.get("ETag");
@@ -44,19 +48,14 @@ export function webStore(qc: QueryClient, openPath: (path: string) => void): Not
     },
 
     async saveCopy(path, text) {
-      const folder = parentOf(path);
-      const name = await freeName(folder, path.split("/").pop()!.replace(/(\.[^.]+)?$/, " (my copy)$1"));
-      const res = await fetch(fileUrl(folder + name), { method: "PUT", headers: { "Content-Type": "text/markdown; charset=utf-8" }, body: text || "\n" });
-      if (!res.ok) throw new Error(`Couldn't save the copy (${res.status})`);
-      return name;
+      const name = path.split("/").pop()!.replace(/(\.[^.]+)?$/, " (my copy)$1");
+      return createFile(parentOf(path), name, () => text || "\n", "text/markdown; charset=utf-8");
     },
 
     async uploadImage(notePath, file) {
       const folder = parentOf(notePath);
       const dir = folder + "attachments/";
-      const name = await freeName(dir, pastedName(file));
-      const res = await fetch(fileUrl(dir + name), { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
-      if (!res.ok) throw new Error(`Couldn't upload ${name} (${res.status})`);
+      const name = await createFile(dir, pastedName(file), () => file, file.type || "application/octet-stream");
       void qc.invalidateQueries({ queryKey: ["drive", "folder", dir] });
       return relativeTo(folder, dir + name);
     },
