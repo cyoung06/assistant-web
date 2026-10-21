@@ -174,3 +174,32 @@ export async function freeName(folder: string, name: string) {
   while (taken.has(free)) free = `${stem} (${n++})${ext}`;
   return free;
 }
+
+export type Trashed = components["schemas"]["Trashed"];
+
+/** What's in the drive's trash (deleted things, kept 30 days), latest first. */
+export function useTrash() {
+  return useQuery({ queryKey: ["drive", "trash"], queryFn: async () => unwrap(await api.GET("/api/v1/drive/trash")) });
+}
+
+export function useTrashMutations() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ["drive"] });
+  return {
+    /** Puts [id] back where it was; where it went. */
+    restore: useMutation({
+      mutationFn: async (id: string) => unwrap(await api.POST("/api/v1/drive/trash/{id}/restore", { params: { path: { id } } })).path,
+      onSettled: refresh,
+    }),
+    /** Deletes [id] for good. */
+    purge: useMutation({
+      mutationFn: async (id: string) => void (await api.DELETE("/api/v1/drive/trash/{id}", { params: { path: { id } } })),
+      onSettled: refresh,
+    }),
+    /** Deletes everything in the trash for good. */
+    empty: useMutation({
+      mutationFn: async () => void (await api.DELETE("/api/v1/drive/trash")),
+      onSettled: refresh,
+    }),
+  };
+}

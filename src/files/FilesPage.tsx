@@ -209,15 +209,8 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
         })(),
       ),
     upload: (dest: string) => ((uploadTo.current = dest), picker.current?.click()),
-    remove: (e: DriveEntry) =>
-      setAsking({
-        title: `Delete “${e.name}”${e.folder ? " and everything in it" : ""}?`,
-        confirm: "Delete",
-        danger: true,
-        done: () => {
-          run(remove.mutateAsync(e.path).then(() => moved(e.path, null)));
-        },
-      }),
+    /** To the trash (kept 30 days, put back from Trash): no asking first. */
+    remove: (e: DriveEntry) => run(remove.mutateAsync(e.path).then(() => moved(e.path, null))),
     duplicate: (e: DriveEntry) => run(copy.mutateAsync({ from: e.path, to: e.path })),
   };
 
@@ -239,7 +232,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     } else items.push({ label: "Open in new tab", run: () => window.open(appUrl(here), "_blank", "noopener") }, "-");
     if (clip && canPut) items.push({ label: `Paste “${clip.name}”`, hint: "⌘V", run: () => paste(dest, clip) });
     if (e && canSiblings) items.push({ label: "Duplicate", run: () => actions.duplicate(e) });
-    if (e && canChange) items.push("-", { label: "Rename", hint: "F2", run: () => setRenaming(e.path) }, { label: "Delete", hint: "⌫", danger: true, run: () => actions.remove(e) });
+    if (e && canChange) items.push("-", { label: "Rename", hint: "F2", run: () => setRenaming(e.path) }, { label: "Move to Trash", hint: "⌫", danger: true, run: () => actions.remove(e) });
     if (canPut)
       items.push(
         "-",
@@ -443,7 +436,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             const here = viewing ? (known.get(viewing) ?? fileEntry(viewing)) : null;
-            setMenu({ x: r.right - 220, y: r.bottom + 4, items: [...menuFor(here, path), "-", { label: "Open on Mac…", run: () => setConnect((c) => !c) }] });
+            setMenu({ x: r.right - 220, y: r.bottom + 4, items: [...menuFor(here, path), "-", { label: "Trash", run: () => (history.pushState(null, "", "/trash"), window.dispatchEvent(new PopStateEvent("popstate"))) }, { label: "Open on Mac…", run: () => setConnect((c) => !c) }] });
           }}
         >
           ⋯

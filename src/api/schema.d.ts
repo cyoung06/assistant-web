@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/drive/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["copyFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/drive/file": {
         parameters: {
             query?: never;
@@ -222,6 +238,70 @@ export interface paths {
         get: operations["projectFolder"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/thumb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["thumb"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTrash"];
+        put?: never;
+        post?: never;
+        delete: operations["emptyTrash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/trash/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["purgeTrashed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/trash/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreTrashed"];
         delete?: never;
         options?: never;
         head?: never;
@@ -430,6 +510,22 @@ export interface paths {
         get: operations["mailMessage"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mailParse"];
         delete?: never;
         options?: never;
         head?: never;
@@ -692,6 +788,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sync/blobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["put"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sync/blobs/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks": {
         parameters: {
             query?: never;
@@ -891,6 +1019,9 @@ export interface components {
             /** Format: int32 */
             size: number;
         };
+        BlobPut: {
+            hash: string;
+        };
         CalendarResponse: {
             color?: string | null;
             fixed: boolean;
@@ -973,8 +1104,12 @@ export interface components {
             url: string;
         };
         DataBuffer: unknown;
+        DriveCopied: {
+            path: string;
+        };
         DriveEntry: {
             contentType?: string | null;
+            etag?: string | null;
             folder: boolean;
             /** Format: date-time */
             modified?: string | null;
@@ -991,6 +1126,9 @@ export interface components {
             enabled: boolean;
             url: string;
             username: string;
+        };
+        DriveRestored: {
+            path: string;
         };
         DueDto: {
             /** Format: date */
@@ -1150,6 +1288,12 @@ export interface components {
             id: string;
             name: string;
             token: string;
+        };
+        ParsedMail: {
+            from: string;
+            messageId?: string | null;
+            subject: string;
+            text: string;
         };
         ProjectResponse: {
             color: string;
@@ -1342,6 +1486,17 @@ export interface components {
             /** Format: date-time */
             lastUsed?: string | null;
             name: string;
+        };
+        Trashed: {
+            /** Format: date-time */
+            deletedAt: string;
+            folder: boolean;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            path: string;
+            /** Format: int64 */
+            size: number;
         };
         TriageInputResponse: {
             /** Format: date-time */
@@ -1656,12 +1811,38 @@ export interface operations {
             };
         };
     };
+    copyFile: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveCopied"];
+                };
+            };
+        };
+    };
     readFile: {
         parameters: {
             query: {
                 path: string;
             };
-            header?: never;
+            header?: {
+                Range?: string;
+                "If-None-Match"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1683,7 +1864,10 @@ export interface operations {
             query: {
                 path: string;
             };
-            header?: never;
+            header?: {
+                "If-Match"?: string;
+                "If-None-Match"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1801,6 +1985,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriveFolder"];
+                };
+            };
+        };
+    };
+    thumb: {
+        parameters: {
+            query: {
+                path: string;
+                version?: string;
+                width?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+        };
+    };
+    listTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trashed"][];
+                };
+            };
+        };
+    };
+    emptyTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    purgeTrashed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    restoreTrashed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveRestored"];
                 };
             };
         };
@@ -2285,6 +2573,30 @@ export interface operations {
             };
         };
     };
+    mailParse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "message/rfc822": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParsedMail"];
+                };
+            };
+        };
+    };
     projects: {
         parameters: {
             query?: never;
@@ -2738,6 +3050,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceStatus"];
+                };
+            };
+        };
+    };
+    put: {
+        parameters: {
+            query?: never;
+            header: {
+                "Content-Type": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlobPut"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
         };

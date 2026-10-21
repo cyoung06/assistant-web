@@ -4,6 +4,7 @@ import { Shortcuts } from "./shell/Shortcuts";
 import { Sidebar } from "./shell/Sidebar";
 import { appRoute, plmsWebUrl } from "./refs/kinds";
 import { FilesPage } from "./files/FilesPage";
+import { TrashPage } from "./files/TrashPage";
 import { filesRoute, pathOfRoute } from "./files/api";
 import { MailReader } from "./refs/MailReader";
 import { SourcesDialog } from "./shell/SourcesDialog";
@@ -124,6 +125,7 @@ function Shell() {
   const onTriage = hash === "triage";
   const onCalendar = hash.startsWith("calendar");
   const onFiles = hash === "files" || hash.startsWith("files/");
+  const onTrash = hash === "trash";
   const tasksRoute = hash.startsWith("tasks/") ? hash.slice(6) : "";
   const projectId = tasksRoute.startsWith("project/") ? tasksRoute.slice(8) : undefined;
 
@@ -134,7 +136,7 @@ function Shell() {
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
   const search = () => {
-    if (onCalendar || onTriage || onFiles || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
+    if (onCalendar || onTriage || onFiles || onTrash || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };
@@ -182,13 +184,15 @@ function Shell() {
           <button className="btn btn-ghost" aria-label="Open navigation" onClick={() => setDrawer(true)}>
             ☰
           </button>
-          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : onFiles ? "Files" : "Tasks"}</span>
+          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : onFiles ? "Files" : onTrash ? "Trash" : "Tasks"}</span>
         </header>
         <main className={styles.main}>
           {mailId ? (
             <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
           ) : onTriage ? (
             <TriagePage />
+          ) : onTrash ? (
+            <TrashPage />
           ) : onFiles ? (
             <FilesPage path={"Projects/" + pathOfRoute(hash.slice(6))} go={(p) => go(filesRoute(p.startsWith("Projects/") ? p.slice(9) : p))} />
           ) : onCalendar ? (
