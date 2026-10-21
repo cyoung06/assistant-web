@@ -12,13 +12,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = worker;
  * document as the apps' (see the core's notebook.rs for what's in it), over the API's y-websocket
  * endpoint; the server writes the PDF. Pages are drawn from the base PDF (pdf.js) or as blank
  * pages; everyone's ink from its outline. Here: a simple pen (its width following the pressure
- * where there is one), a highlighter, and an eraser that takes strokes whole, as the tablet's does.
+ * where there is one), a highlighter, and an eraser that takes strokes whole, as the tablet's does;
+ * blank pages added and pages deleted (with what's on them), and pages bookmarked.
  */
 
 type Page = { id: string; base: number; style: string; width: number; height: number };
 type Stroke = { page: string; tool: string; color: number; width: number; points?: Uint8Array; outline?: Uint8Array[]; ink?: Uint8Array; transform?: number[] };
 type Picture = { page: string; rect: number[]; crop: number[]; blob: string; mime: string };
 type Tool = "pen" | "highlighter" | "eraser";
+/** A blank page's look, as the core draws it (see blank_page). */
+type Style = "plain" | "lines" | "grid" | "dots";
+const STYLES: [Style, string][] = [["plain", "Plain"], ["lines", "Lines"], ["grid", "Grid"], ["dots", "Dots"]];
 
 /** The tablet's colours (ARGB): pens, then highlighters. */
 const PENS = [0xff1b1b1f, 0xff1e5bd8, 0xffd93025, 0xff188038];
@@ -96,15 +100,22 @@ export default function Notebook({ path }: { path: string }) {
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState(0);
   const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
-  const yref = useRef<{ doc: Y.Doc; pages: Y.Array<Page>; strokes: Y.Map<Stroke>; images: Y.Map<Picture>; meta: Y.Map<string> } | null>(null);
+  const [style, setStyle] = useState<Style>("plain");
+  /** The page in view (its index), where a new page goes after. */
+  const [current, setCurrent] = useState(0);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const sheets = useRef(new Map<string, HTMLDivElement>());
+  const yref = useRef<{ doc: Y.Doc; pages: Y.Array<Page>; strokes: Y.Map<Stroke>; images: Y.Map<Picture>; bookmarks: Y.Map<boolean>; meta: Y.Map<string> } | null>(null);
 
   useEffect(() => {
     const doc = new Y.Doc();
     const pages = doc.getArray<Page>("pages");
     const strokes = doc.getMap<Stroke>("strokes");
     const images = doc.getMap<Picture>("images");
+    const bookmarks = doc.getMap<boolean>("bookmarks");
     const meta = doc.getMap<string>("meta");
-    yref.current = { doc, pages, strokes, images, meta };
+    yref.current = { doc, pages, strokes, images, bookmarks, meta };
     const bump = () => setVersion((v) => v + 1);
     doc.on("update", bump);
     const provider = new WebsocketProvider(syncUrl(), "sync", doc, { params: { doc: path } });
@@ -157,6 +168,48 @@ export default function Notebook({ path }: { path: string }) {
     const argb = palette[color % palette.length]!;
     y.strokes.set(crypto.randomUUID(), { page, tool, color: argb, width, points: bytes(points), outline: [bytes(outlineOf(points, width, pen))] });
   };
+  const marked = useMemo(() => new Set(y ? [...y.bookmarks.keys()] : []), [y, version]);
+
+  /** A blank page in [style] after the page in view, its size. */
+  const addPage = () => {
+    if (!y) return;
+    const at = Math.min(current, pages.length - 1);
+    const ref = pages[at];
+    const page: Page = { id: crypto.randomUUID(), base: -1, style, width: ref?.width ?? 595, height: ref?.height ?? 842 };
+    y.pages.insert(at + 1, [page]);
+    requestAnimationFrame(() => sheets.current.get(page.id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  /** Page [id] gone, with what's on it (as the core's RemovePage). */
+  const deletePage = (id: string) => {
+    if (!y) return;
+    y.doc.transact(() => {
+      const i = y.pages.toArray().findIndex((p) => p.id === id);
+      if (i >= 0) y.pages.delete(i, 1);
+      y.strokes.forEach((s, k) => s.page === id && y.strokes.delete(k));
+      y.images.forEach((p, k) => p.page === id && y.images.delete(k));
+      y.bookmarks.delete(id);
+    });
+    setDeleting(null);
+  };
+  const bookmark = (id: string, on: boolean) => {
+    if (!y) return;
+    if (on) y.bookmarks.set(id, true);
+    else y.bookmarks.delete(id);
+  };
+  const jump = (id: string) => sheets.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // The page in view: the last whose top is above the middle of the pane.
+  const onScroll = () => {
+    const el = scroller.current;
+    if (!el) return;
+    const middle = el.getBoundingClientRect().top + el.clientHeight / 2;
+    let at = 0;
+    pages.forEach((p, i) => {
+      const s = sheets.current.get(p.id);
+      if (s && s.getBoundingClientRect().top <= middle) at = i;
+    });
+    setCurrent(at);
+  };
+
   const erase = (page: string, at: [number, number][], r: number) => {
     if (!y) return;
     const hit = (byPage.get(page) ?? []).filter(([, s]) => at.some(([x, yy]) => hits(s, x, yy, r))).map(([id]) => id);
@@ -168,6 +221,25 @@ export default function Notebook({ path }: { path: string }) {
       <div className={styles.bar}>
         <span className={styles.status}>{status}</span>
         <span className={styles.spacer} />
+        {marked.size > 0 && (
+          <select className={styles.select} value="" onChange={(e) => jump(e.target.value)} aria-label="Bookmarks">
+            <option value="" disabled>
+              Bookmarks
+            </option>
+            {pages.map((p, i) => marked.has(p.id) && <option key={p.id} value={p.id}>{`Page ${i + 1}`}</option>)}
+          </select>
+        )}
+        <select className={styles.select} value={style} onChange={(e) => setStyle(e.target.value as Style)} aria-label="New page's look">
+          {STYLES.map(([v, label]) => (
+            <option key={v} value={v}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button className="btn btn-ghost" onClick={addPage} disabled={!y || !pages.length} title="A blank page after the one in view">
+          Add page
+        </button>
+        <span className={styles.divider} />
         {(["pen", "highlighter", "eraser"] as Tool[]).map((t) => (
           <button key={t} className={`btn btn-ghost ${tool === t ? styles.on : ""}`} onClick={() => setTool(t)}>
             {t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : "Eraser"}
@@ -176,9 +248,42 @@ export default function Notebook({ path }: { path: string }) {
         {tool !== "eraser" &&
           palette.map((c, i) => <button key={c} className={`${styles.swatch} ${color === i ? styles.on : ""}`} style={{ background: rgba(c | 0xff000000) }} onClick={() => setColor(i)} aria-label={`Colour ${i + 1}`} />)}
       </div>
-      <div className={styles.pages}>
-        {pages.map((p) => (
-          <PageView key={p.id} page={p} pdf={pdf} strokes={byPage.get(p.id) ?? []} pictures={picturesByPage.get(p.id) ?? []} tool={tool} onStroke={(pts) => put(p.id, pts)} onErase={(at, r) => erase(p.id, at, r)} />
+      <div ref={scroller} className={styles.pages} onScroll={onScroll}>
+        {pages.map((p, i) => (
+          <div
+            key={p.id}
+            className={styles.sheet}
+            ref={(el) => {
+              if (el) sheets.current.set(p.id, el);
+              else sheets.current.delete(p.id);
+            }}
+          >
+            <PageView page={p} pdf={pdf} strokes={byPage.get(p.id) ?? []} pictures={picturesByPage.get(p.id) ?? []} tool={tool} onStroke={(pts) => put(p.id, pts)} onErase={(at, r) => erase(p.id, at, r)} />
+            <div className={styles.footer}>
+              <button className={`btn btn-ghost ${styles.star}`} onClick={() => bookmark(p.id, !marked.has(p.id))} aria-pressed={marked.has(p.id)} title={marked.has(p.id) ? "Remove the bookmark" : "Bookmark this page"}>
+                {marked.has(p.id) ? "★" : "☆"}
+              </button>
+              <span>
+                Page {i + 1} of {pages.length}
+              </span>
+              <span className={styles.spacer} />
+              {deleting === p.id ? (
+                <>
+                  <span>Delete this page and what's on it?</span>
+                  <button className="btn btn-danger" onClick={() => deletePage(p.id)}>
+                    Delete
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => setDeleting(null)}>
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn-ghost" onClick={() => setDeleting(p.id)} disabled={pages.length <= 1}>
+                  Delete page
+                </button>
+              )}
+            </div>
+          </div>
         ))}
       </div>
     </div>

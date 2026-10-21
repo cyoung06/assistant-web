@@ -50,12 +50,50 @@
   align-items: center;
   gap: 16px;
 }
+.sheet {
+  width: min(100%, 900px);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .page {
   position: relative;
-  width: min(100%, 900px);
+  width: 100%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  flex: none;
+}
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+}
+.footer :global(.btn) {
+  height: 24px;
+  font-size: var(--text-xs);
+}
+.star {
+  font-size: 15px;
+}
+.star[aria-pressed="true"] {
+  color: var(--accent);
+}
+.select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-xs);
+}
+.divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--line);
 }
 .canvas,
 .ink {
