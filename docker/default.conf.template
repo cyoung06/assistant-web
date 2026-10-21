@@ -3,6 +3,8 @@ server {
     listen 8080;
     server_name _;
     root /usr/share/nginx/html;
+    # Behind TLS on the tailnet: a redirect names a path only, never this listener's http://…:8080.
+    absolute_redirect off;
 
     # API, same origin as the app.
     location /api/ {
@@ -23,6 +25,15 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_read_timeout 1h;
         proxy_send_timeout 1h;
+    }
+
+    # The drive's own endpoint (/api/v1/drive, no slash): passed on, not answered with nginx's
+    # add-a-slash redirect (which /api/v1/drive/ below would give it).
+    location = /api/v1/drive {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     # Drive files: any size, streamed both ways (uploads aren't spooled here first, videos play as they arrive).
@@ -67,6 +78,8 @@ server {
     listen 8081;
     server_name _;
     root /usr/share/nginx/html;
+    # Behind the public ingress's TLS: a redirect names a path only, never this listener's http://…:8081.
+    absolute_redirect off;
 
     location /outlook/ {
         add_header Cache-Control "no-cache";
