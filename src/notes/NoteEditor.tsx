@@ -1,31 +1,31 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, type Completion, type CompletionContext } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap, indentLess, indentMore } from "@codemirror/commands";
+import { defaultKeymap, indentLess, indentMore } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
-import { Annotation, Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { drawSelection, EditorView, keymap, placeholder, type Command } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
+import { WebsocketProvider } from "y-websocket";
+import * as Y from "yjs";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
 import { loadCore, type Core, type Edit, type SlashItem } from "./core";
-import { drafts } from "./drafts";
 import { freshNotes } from "./fresh";
 import { darkChanged, livePreview } from "./livePreview";
-import { openNotes } from "./open";
 import styles from "./NoteEditor.module.css";
-import { strongTag, type NoteStatus as Status, type NoteStore, type Version } from "./store";
+import type { NoteStatus as Status, NoteStore } from "./store";
 import { webStore } from "./webStore";
 
 const STATUS: Record<Status, string> = {
   loading: "Opening…",
-  saved: "Saved",
-  unsaved: "Edited",
-  saving: "Saving…",
-  error: "Couldn't save",
-  conflict: "Changed elsewhere",
+  live: "Live",
+  connecting: "Connecting…",
+  offline: "Offline (edits kept)",
+  error: "Couldn't open",
   readonly: "Read-only",
 };
 
@@ -152,9 +152,6 @@ const theme = EditorView.theme({
   ".cm-placeholder": { color: "var(--text-3)" },
 });
 
-/** Changes that aren't typing (another version loaded): not saved back. */
-const loaded = Annotation.define<boolean>();
-
 /** Whether the page shows dark (the app's theme, or the system's when it follows that). */
 function pageIsDark() {
   const theme = document.documentElement.dataset.theme;
@@ -174,11 +171,14 @@ function watchDark(changed: (dark: boolean) => void) {
   };
 }
 
+/** Where notes are edited live (the API's y-websocket endpoint; the note is the `doc` parameter). */
+const syncUrl = () => `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1`;
+
 /**
  * A Markdown note (with $…$ and $$…$$ math, and Mermaid diagrams) from the drive. It opens to read,
- * rendered; Edit to write in it, where it reads as rendered except where the cursor is, and saves
- * itself a second after typing stops (and on leaving). If the file changed elsewhere meanwhile,
- * nothing is overwritten: you choose. Course files only read.
+ * rendered; Edit to write in it, where it reads as rendered except where the cursor is. It's edited
+ * live: every device with it open shows the others' edits as they're typed (Yjs), and the server
+ * writes the file a second after edits stop. Course files only read.
  */
 export default function NoteEditor({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
   const qc = useQueryClient();
@@ -188,7 +188,7 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
   return <Note path={path} store={store} locked={readOnly(path)} entry={entry} />;
 }
 
-/** A note, read and written through [store]. */
+/** A note: edited live, or (course files) only read through [store]. */
 function Note({ path, store, locked, entry }: { path: string; store: NoteStore; locked: boolean; entry?: DriveEntry }) {
   const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -197,27 +197,11 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
   const [source, setSource] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-  const controls = useRef<{
-    setEditing: (on: boolean) => void;
-    setSource: (on: boolean) => void;
-    retry: () => void;
-    overwrite: () => void;
-    loadTheirs: () => void;
-    saveCopy: () => void;
-  } | null>(null);
+  const controls = useRef<{ setEditing: (on: boolean) => void; setSource: (on: boolean) => void } | null>(null);
 
   useEffect(() => {
     let alive = true;
     let view: EditorView | null = null;
-    let version: Version = { etag: null, modified: null };
-    let dirty = false;
-    let saving: Promise<void> | null = null;
-    let timer: number | undefined;
-    let keepTimer: number | undefined;
-    let conflicted = false;
-    /** Deleted: nothing's written back. */
-    let gone = false;
     let core: Core | null = null;
     let source = false;
     const folder = parentOf(path);
@@ -226,95 +210,6 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
     /** The live preview, or (Source) none. */
     const mode = new Compartment();
     const set = (s: Status) => alive && setStatus(s);
-
-    /** Keeps what's unsaved as a draft (in case it never gets written); none once it's all written. */
-    const keep = () => {
-      window.clearTimeout(keepTimer);
-      if (!view || locked || gone) return;
-      if (dirty || conflicted) drafts.put(path, { text: view.state.doc.toString(), base: version, at: Date.now() });
-      else drafts.clear(path);
-    };
-
-    /** Writes the note; with [force], even over a version written elsewhere; [closing]: the page is going away. */
-    const save = async (force = false, closing = false): Promise<void> => {
-      if (!view || locked || gone || (!dirty && !force) || (conflicted && !force)) return;
-      if (saving) return saving.then(() => save(force, closing));
-      const text = view.state.doc.toString();
-      dirty = false;
-      set("saving");
-      saving = (async () => {
-        try {
-          const done = await store.write(path, text, version, force, closing);
-          if ("conflict" in done) throw Object.assign(new Error("conflict"), { conflict: true });
-          version = done.version;
-          conflicted = false;
-          setError(null);
-          set(dirty ? "unsaved" : "saved");
-          keep();
-          store.saved?.(path);
-        } catch (e) {
-          dirty = true;
-          keep();
-          if ((e as { conflict?: boolean }).conflict) {
-            conflicted = true;
-            set("conflict");
-          } else {
-            setError((e as Error).message);
-            set("error");
-          }
-        } finally {
-          saving = null;
-        }
-      })();
-      return saving;
-    };
-    const later = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => void save(), 1000);
-    };
-
-    /** Shows [text] as the note (another version, loaded), keeping the cursor where it can. */
-    const replace = (text: string) => {
-      if (!view) return;
-      const head = Math.min(view.state.selection.main.head, text.length);
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: head }, annotations: loaded.of(true) });
-      dirty = false;
-    };
-
-    /**
-     * A draft left from before (unsaved when the note was last left): shown instead of [text], to
-     * be saved; if the note changed since the draft's version, as a conflict to settle.
-     */
-    const restore = (text: string) => {
-      const draft = locked ? null : drafts.get(path);
-      if (!draft || !view) return;
-      if (draft.text === text) return drafts.clear(path);
-      replace(draft.text);
-      dirty = true;
-      const same = draft.base.etag && version.etag ? strongTag(draft.base.etag) === strongTag(version.etag) : draft.base.modified === version.modified;
-      if (same) {
-        set("unsaved");
-        later();
-      } else {
-        version = draft.base;
-        conflicted = true;
-        set("conflict");
-      }
-    };
-
-    /** Coming back to the page: a note not being edited shows what's there now. */
-    const recheck = async () => {
-      if (!view || dirty || saving || conflicted || !store.changed) return;
-      try {
-        const fresh = await store.changed(path, version);
-        if (fresh && view && !dirty && !saving && !conflicted) {
-          if (fresh.text !== view.state.doc.toString()) replace(fresh.text);
-          version = fresh.version;
-        }
-      } catch {
-        // Offline for a moment: checked again next time.
-      }
-    };
 
     /** Uploads images (pasted or dropped) next to the note, in attachments/, and links them at [at]. */
     const insertImages = async (files: File[], at: number) => {
@@ -338,104 +233,123 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
     const live = (): Extension => (source || !core ? [] : livePreview(core, folder, (href, p) => store.openLink(href, p), (p) => store.imageSrc(p), pageIsDark()));
     const writable = (on: boolean): Extension => [EditorState.readOnly.of(!on), EditorView.editable.of(on)];
 
-    /** Reading or writing: leaving writing saves what's typed. */
+    /** Reading or writing. */
     const edit = (on: boolean) => {
       if (!view || (on && locked)) return;
       view.dispatch({ effects: access.reconfigure(writable(on)) });
       if (alive) setEditing(on);
       if (on) view.focus();
-      else {
-        keep();
-        void save();
+    };
+
+    /** The editor, on [text] (and, edited live, bound to [shared]). */
+    const show = (c: Core, text: string, shared: Extension, fresh: boolean) => {
+      if (!alive || !host.current) return;
+      core = c;
+      view = new EditorView({
+        parent: host.current,
+        state: EditorState.create({
+          doc: text,
+          extensions: [
+            drawSelection(),
+            EditorView.lineWrapping,
+            markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: true }),
+            markdownLanguage.data.of({ closeBrackets: { brackets: ["(", "[", "{", "$", "`"] } }),
+            closeBrackets(),
+            syntaxHighlighting(highlight),
+            search({ top: true }),
+            highlightSelectionMatches(),
+            autocompletion({ override: [slashMenu(c.slashItems() as SlashItem[])], icons: false, defaultKeymap: true }),
+            placeholder("Write, or type / for blocks…"),
+            shared,
+            keymap.of([
+              { key: "Mod-b", run: wrap(c, "**") },
+              { key: "Mod-i", run: wrap(c, "*") },
+              { key: "Mod-k", run: link },
+              { key: "Tab", run: indentMore, shift: indentLess },
+              ...closeBracketsKeymap,
+              ...searchKeymap,
+              ...defaultKeymap,
+            ]),
+            access.of(writable(fresh)),
+            theme,
+            mode.of(live()),
+            EditorView.domEventHandlers({
+              paste: (e, v) => {
+                const files = imagesIn(e.clipboardData);
+                if (!files.length || v.state.readOnly) return false;
+                e.preventDefault();
+                void insertImages(files, v.state.selection.main.head);
+                return true;
+              },
+              drop: (e, v) => {
+                const files = imagesIn(e.dataTransfer);
+                if (!files.length || v.state.readOnly) return false;
+                e.preventDefault();
+                e.stopPropagation();
+                void insertImages(files, v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head);
+                return true;
+              },
+              dragover: (e) => {
+                if (imagesIn(e.dataTransfer).length || [...(e.dataTransfer?.types ?? [])].includes("Files")) e.stopPropagation();
+                return false;
+              },
+            }),
+          ],
+        }),
+      });
+      // For checking it in a browser while developing.
+      if (import.meta.env.DEV) (window as unknown as { __noteView?: EditorView }).__noteView = view;
+      setReady(true);
+      if (fresh) {
+        setEditing(true);
+        const first = view.state.doc.line(1);
+        const title = /^#\s+/.exec(first.text);
+        view.dispatch({ selection: title ? EditorSelection.range(first.from + title[0].length, first.to) : EditorSelection.cursor(first.to) });
+        view.focus();
       }
     };
 
-    Promise.all([store.read(path), loadCore()])
-      .then(([{ text, version: v }, c]) => {
-        if (!alive || !host.current) return;
-        version = v;
-        core = c;
-        // A note just made opens to write in, its title selected to type over.
-        const fresh = freshNotes.delete(path) && !locked;
-        view = new EditorView({
-          parent: host.current,
-          state: EditorState.create({
-            doc: text,
-            extensions: [
-              history(),
-              drawSelection(),
-              EditorView.lineWrapping,
-              markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: true }),
-              markdownLanguage.data.of({ closeBrackets: { brackets: ["(", "[", "{", "$", "`"] } }),
-              closeBrackets(),
-              syntaxHighlighting(highlight),
-              search({ top: true }),
-              highlightSelectionMatches(),
-              autocompletion({ override: [slashMenu(c.slashItems() as SlashItem[])], icons: false, defaultKeymap: true }),
-              placeholder("Write, or type / for blocks…"),
-              keymap.of([
-                { key: "Mod-b", run: wrap(c, "**") },
-                { key: "Mod-i", run: wrap(c, "*") },
-                { key: "Mod-k", run: link },
-                { key: "Mod-s", run: () => (void save(), true) },
-                { key: "Tab", run: indentMore, shift: indentLess },
-                ...closeBracketsKeymap,
-                ...searchKeymap,
-                ...historyKeymap,
-                ...defaultKeymap,
-              ]),
-              access.of(writable(fresh)),
-              theme,
-              mode.of(live()),
-              EditorView.updateListener.of((u) => {
-                if (!u.docChanged || locked || u.transactions.every((tr) => tr.annotation(loaded))) return;
-                dirty = true;
-                window.clearTimeout(keepTimer);
-                keepTimer = window.setTimeout(keep, 300);
-                if (!conflicted) (set("unsaved"), later());
-              }),
-              EditorView.domEventHandlers({
-                blur: () => (keep(), void save()),
-                paste: (e, v) => {
-                  const files = imagesIn(e.clipboardData);
-                  if (!files.length || v.state.readOnly) return false;
-                  e.preventDefault();
-                  void insertImages(files, v.state.selection.main.head);
-                  return true;
-                },
-                drop: (e, v) => {
-                  const files = imagesIn(e.dataTransfer);
-                  if (!files.length || v.state.readOnly) return false;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void insertImages(files, v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head);
-                  return true;
-                },
-                dragover: (e) => {
-                  if (imagesIn(e.dataTransfer).length || [...(e.dataTransfer?.types ?? [])].includes("Files")) e.stopPropagation();
-                  return false;
-                },
-              }),
-            ],
-          }),
-        });
-        // For checking it in a browser while developing.
-        if (import.meta.env.DEV) (window as unknown as { __noteView?: EditorView }).__noteView = view;
-        set(locked ? "readonly" : "saved");
-        setReady(true);
-        restore(text);
-        if (fresh) {
-          setEditing(true);
-          const first = view.state.doc.line(1);
-          const title = /^#\s+/.exec(first.text);
-          view.dispatch({ selection: title ? EditorSelection.range(first.from + title[0].length, first.to) : EditorSelection.cursor(first.to) });
-          view.focus();
-        }
-      })
-      .catch((e: Error) => {
-        setError(e.message);
-        set("error");
+    let provider: WebsocketProvider | null = null;
+    const ydoc = new Y.Doc();
+    if (locked) {
+      // Course files: read as they are, nothing to sync.
+      Promise.all([store.read(path), loadCore()])
+        .then(([{ text }, c]) => {
+          set("readonly");
+          show(c, text, [], false);
+        })
+        .catch((e: Error) => (setError(e.message), set("error")));
+    } else {
+      const ytext = ydoc.getText("note");
+      const undo = new Y.UndoManager(ytext);
+      provider = new WebsocketProvider(syncUrl(), "sync", ydoc, { params: { doc: path } });
+      const p = provider;
+      // Who this is, beside its cursor on the other devices.
+      p.awareness.setLocalStateField("user", { name: "Web", color: "#7d9cff", colorLight: "#7d9cff33" });
+      p.on("status", ({ status: s }: { status: string }) => {
+        if (view) set(s === "connected" ? "live" : s === "connecting" ? "connecting" : "offline");
       });
+      p.on("connection-close", (e: CloseEvent | null) => {
+        // Refused (not a note that can be edited live, or gone): no point trying again.
+        if (e?.code === 1008) {
+          p.disconnect();
+          setError(e.reason || "This note can't be opened");
+          set("error");
+        }
+      });
+      // The editor once the note has come from the server (an empty one until then would look like an empty note).
+      const synced = (isSynced: boolean) => {
+        if (!isSynced || view) return;
+        p.off("sync", synced);
+        void loadCore()
+          .then((c) => {
+            show(c, ytext.toString(), [yCollab(ytext, p.awareness, { undoManager: undo }), keymap.of(yUndoManagerKeymap)], freshNotes.delete(path));
+            set(p.wsconnected ? "live" : "offline");
+          })
+          .catch((e: Error) => (setError(e.message), set("error")));
+      };
+      p.on("sync", synced);
+    }
     const unwatchDark = watchDark((dark) => view?.dispatch({ effects: darkChanged.of(dark) }));
 
     controls.current = {
@@ -444,75 +358,13 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
         source = on;
         view?.dispatch({ effects: mode.reconfigure(live()) });
       },
-      retry: () => void save(),
-      overwrite: () => void save(true),
-      loadTheirs: () =>
-        void store.read(path).then((fresh) => {
-          replace(fresh.text);
-          version = fresh.version;
-          conflicted = false;
-          drafts.clear(path);
-          set("saved");
-        }),
-      saveCopy: () =>
-        void (async () => {
-          if (!view) return;
-          try {
-            setCopied(await store.saveCopy(path, view.state.doc.toString()));
-          } catch (e) {
-            return setError((e as Error).message);
-          }
-          const fresh = await store.read(path);
-          replace(fresh.text);
-          version = fresh.version;
-          conflicted = false;
-          drafts.clear(path);
-          set("saved");
-          store.saved?.(path);
-        })(),
     };
-    /** Writes what's unsaved now; true once everything typed is written (false: it's kept as a draft). */
-    const flush = async () => {
-      window.clearTimeout(timer);
-      keep();
-      await save();
-      return locked || gone || (!dirty && !conflicted);
-    };
-    openNotes.set(path, {
-      flush,
-      stop: (stopped) => {
-        gone = stopped;
-        window.clearTimeout(timer);
-        window.clearTimeout(keepTimer);
-        if (!stopped && dirty && !conflicted) later();
-      },
-    });
 
-    const onFocus = () => void recheck();
-    const onHide = () => document.visibilityState === "hidden" && (keep(), void save());
-    const onUnload = () => (keep(), void save(false, true));
-    // Closing the tab while something isn't written: the browser asks first (it's kept as a draft either way).
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (locked || gone || !(dirty || saving || conflicted)) return;
-      keep();
-      e.preventDefault();
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onHide);
-    window.addEventListener("pagehide", onUnload);
-    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       alive = false;
-      window.clearTimeout(timer);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onHide);
-      window.removeEventListener("pagehide", onUnload);
-      window.removeEventListener("beforeunload", onBeforeUnload);
       unwatchDark();
-      if (openNotes.get(path)?.flush === flush) openNotes.delete(path);
-      // Leaving the note: what's unsaved is kept as a draft, and goes now.
-      keep();
-      void save();
+      provider?.destroy();
+      ydoc.destroy();
       view?.destroy();
     };
   }, [path, locked, store]);
@@ -520,7 +372,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
   return (
     <div className={styles.note}>
       <div className={styles.bar}>
-        <span className={`${styles.status} ${status === "error" || status === "conflict" ? styles.bad : ""}`} title={error ?? undefined}>
+        <span className={`${styles.status} ${status === "error" || status === "offline" ? styles.bad : ""}`} title={error ?? undefined}>
           {STATUS[status]}
         </span>
         {entry && <span className={styles.meta}>{size(entry.size)}</span>}
@@ -546,33 +398,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
           </button>
         )}
       </div>
-      {status === "conflict" && (
-        <div className={styles.banner} role="alert">
-          <span>This note was changed somewhere else since you opened it.</span>
-          <button className="btn" onClick={() => controls.current?.overwrite()}>
-            Keep mine
-          </button>
-          <button className="btn" onClick={() => controls.current?.loadTheirs()}>
-            Load theirs
-          </button>
-          <button className="btn" onClick={() => controls.current?.saveCopy()}>
-            Save mine as a copy
-          </button>
-        </div>
-      )}
-      {copied && (
-        <div className={styles.banner} onClick={() => setCopied(null)}>
-          Your version was saved as “{copied}”; this is theirs.
-        </div>
-      )}
-      {status === "error" && error && (
-        <div className={`${styles.banner} ${styles.bad}`}>
-          <span>{error}</span>
-          <button className="btn" onClick={() => controls.current?.retry()}>
-            Try again
-          </button>
-        </div>
-      )}
+      {status === "error" && error && <div className={`${styles.banner} ${styles.bad}`}>{error}</div>}
       {locked && <div className={styles.banner}>From PLMS, kept as it is there. Copy it out of Course files to write in it.</div>}
       <div ref={host} className={styles.editor} />
     </div>
