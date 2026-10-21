@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "./api/client";
 import { App } from "./App";
-// The app's typeface (the embedded editor uses the system's instead).
+// The app's typeface.
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./styles/global.css";
 

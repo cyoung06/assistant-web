@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { createFile, fileUrl, parentOf, type DriveEntry } from "../files/api";
-import { pastedName, relativeTo } from "./md";
+import { loadCore } from "./core";
 import { strongTag, type Loaded, type NoteStore } from "./store";
 
 async function listed(path: string): Promise<(DriveEntry & { etag?: string | null }) | undefined> {
@@ -18,6 +18,12 @@ async function read(path: string): Promise<Loaded> {
 }
 
 const conflict = { conflict: true } as const;
+
+/** [now] as YYYYMMDDhhmmss, local time. */
+function stamp(now: Date) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+}
 
 /** Notes in the drive, over the API; drive links open in the app ([openPath]), web ones in a new tab. */
 export function webStore(qc: QueryClient, openPath: (path: string) => void): NoteStore {
@@ -53,11 +59,12 @@ export function webStore(qc: QueryClient, openPath: (path: string) => void): Not
     },
 
     async uploadImage(notePath, file) {
+      const core = await loadCore();
       const folder = parentOf(notePath);
       const dir = folder + "attachments/";
-      const name = await createFile(dir, pastedName(file), () => file, file.type || "application/octet-stream");
+      const name = await createFile(dir, core.pastedName(file.name, file.type, stamp(new Date())), () => file, file.type || "application/octet-stream");
       void qc.invalidateQueries({ queryKey: ["drive", "folder", dir] });
-      return relativeTo(folder, dir + name);
+      return core.relativeLink(folder, dir + name);
     },
 
     imageSrc: fileUrl,

@@ -1,15 +1,12 @@
-import { syntaxTree } from "@codemirror/language";
 import { EditorState, StateEffect, StateField, type Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import DOMPurify from "dompurify";
-import katex from "katex";
-import { Marked } from "marked";
-import { mathRanges, resolveRelative, toggledTask } from "./md";
+import { spansOf, styleOf, type Alignment, type Core, type Span } from "./core";
 
 /**
  * Obsidian-style live preview: a note reads as rendered (headings sized, emphasis and links
- * styled with their marks hidden, tasks as checkboxes, math typeset, images shown) except where
- * the cursor is, which shows the Markdown as written. The file stays plain Markdown.
+ * styled with their marks hidden, tasks as checkboxes, math typeset, diagrams and images shown)
+ * except where the cursor is, which shows the Markdown as written. The file stays plain Markdown.
+ * What's what comes from the shared core, so it reads the same as in the Android and macOS apps.
  */
 
 /** Whether the editor has focus: without it, nothing shows as written. */
@@ -19,30 +16,64 @@ const focused = StateField.define<boolean>({
   update: (v, tr) => tr.effects.reduce((f, e) => (e.is(focusChanged) ? e.value : f), v),
 });
 
-/** The note's folder, for its relative links and images. */
-export const noteFolder = StateField.define<string>({ create: () => "", update: (v) => v });
+/** Whether the page is dark (math and diagrams are drawn in the theme's colours). */
+export const darkChanged = StateEffect.define<boolean>();
+const dark = StateField.define<boolean>({
+  create: () => false,
+  update: (v, tr) => tr.effects.reduce((d, e) => (e.is(darkChanged) ? e.value : d), v),
+});
 
-/** Where the note's drive images are read from. */
-const imageSource = StateField.define<ImageSource | null>({ create: () => null, update: (v) => v });
+type Setup = { core: Core; folder: string; open: OpenLink; images: ImageSource };
+const setup = StateField.define<Setup | null>({ create: () => null, update: (v) => v });
 
-const CODE = new Set(["InlineCode", "FencedCode", "CodeBlock", "CodeText", "CodeMark", "CodeInfo", "HTMLBlock", "Comment"]);
+/** Where a note's images come from: a drive path to something an <img> can show. */
+export type ImageSource = (path: string) => string | Promise<string>;
+
+/** Opens a link: a web address, or (with [path]) a drive file. */
+export type OpenLink = (href: string, path: string | null) => void;
+
+/** A drawing from the core (its SVG is only paths: text comes outlined). */
+function drawing(svg: string, cls: string) {
+  const el = document.createElement("span");
+  el.className = cls;
+  el.innerHTML = svg;
+  return el;
+}
+
+/** [tex] typeset by the core, in the note's text colour; a TeX error shows red, where the math is. */
+function typeset(core: Core, tex: string, display: boolean, isDark: boolean): HTMLElement {
+  const style = styleOf(core, isDark);
+  try {
+    const d = core.renderMath(tex, display, style.fontSize, style.text);
+    const el = drawing(d.svg, display ? "cm-md-math cm-md-mathBlock" : "cm-md-math");
+    // Its baseline on the text's.
+    if (!display) (el.firstElementChild as SVGElement).style.verticalAlign = `${d.baseline - d.height}px`;
+    d.free();
+    return el;
+  } catch (e) {
+    const el = document.createElement("span");
+    el.className = "cm-md-mathError";
+    el.textContent = tex;
+    el.title = (e as Error).message;
+    return el;
+  }
+}
 
 class MathWidget extends WidgetType {
   constructor(
+    readonly core: Core,
     readonly tex: string,
     readonly display: boolean,
+    readonly dark: boolean,
   ) {
     super();
   }
   eq(o: MathWidget) {
-    return o.tex === this.tex && o.display === this.display;
+    return o.tex === this.tex && o.display === this.display && o.dark === this.dark;
   }
   toDOM(view: EditorView) {
-    const el = document.createElement(this.display ? "div" : "span");
-    el.className = this.display ? "cm-md-math cm-md-mathBlock" : "cm-md-math";
-    // Errors show in red where the math is, instead of throwing.
-    el.innerHTML = katex.renderToString(this.tex, { displayMode: this.display, throwOnError: false, errorColor: "var(--danger)", strict: false, trust: false });
-    editOnClick(el, view, this.display ? 2 : 1);
+    const el = typeset(this.core, this.tex, this.display, this.dark);
+    editOnClick(el, view);
     return el;
   }
   ignoreEvent() {
@@ -50,8 +81,35 @@ class MathWidget extends WidgetType {
   }
 }
 
-/** Where a note's images come from: a drive path to something an <img> can show (the host's; maybe later). */
-export type ImageSource = (path: string) => string | Promise<string>;
+class DiagramWidget extends WidgetType {
+  constructor(
+    readonly core: Core,
+    readonly source: string,
+    readonly dark: boolean,
+  ) {
+    super();
+  }
+  eq(o: DiagramWidget) {
+    return o.source === this.source && o.dark === this.dark;
+  }
+  toDOM(view: EditorView) {
+    let el: HTMLElement;
+    try {
+      const d = this.core.renderMermaid(this.source, this.dark);
+      el = drawing(d.svg, "cm-md-diagram");
+      d.free();
+    } catch (e) {
+      el = document.createElement("div");
+      el.className = "cm-md-mathError";
+      el.textContent = (e as Error).message;
+    }
+    editOnClick(el, view);
+    return el;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
 
 class ImageWidget extends WidgetType {
   constructor(
@@ -73,7 +131,7 @@ class ImageWidget extends WidgetType {
     else void src.then((s) => (img.src = s)).catch(() => (img.alt = `${this.alt || this.src} (couldn't load)`));
     img.alt = this.alt;
     img.title = this.alt;
-    editOnClick(img, view, 2);
+    editOnClick(img, view);
     return img;
   }
   ignoreEvent() {
@@ -98,8 +156,10 @@ class CheckboxWidget extends WidgetType {
       e.preventDefault();
       if (view.state.readOnly) return;
       const at = view.posAtDOM(box);
-      const marker = view.state.sliceDoc(at, at + 3);
-      view.dispatch({ changes: { from: at, to: at + 3, insert: toggledTask(marker) } });
+      const marker = view.state.sliceDoc(at, at + 5);
+      const box3 = marker.indexOf("[");
+      if (box3 < 0) return;
+      view.dispatch({ changes: { from: at + box3 + 1, to: at + box3 + 2, insert: this.checked ? " " : "x" } });
     });
     return box;
   }
@@ -108,21 +168,79 @@ class CheckboxWidget extends WidgetType {
   }
 }
 
-const tables = new Marked({ gfm: true });
+/** How an inline element's text looks. */
+const markClass: Partial<Record<string, string>> = { emphasis: "cm-md-em", strong: "cm-md-strong", strikethrough: "cm-md-strike", inlineCode: "cm-md-inlineCode" };
+
+/**
+ * A cell's (or any short piece's) inline Markdown, drawn: emphasis, code, links and math as the
+ * note shows them, its marks left out.
+ */
+function inline(core: Core, text: string, isDark: boolean): DocumentFragment {
+  const out = document.createDocumentFragment();
+  const classes: string[][] = Array.from({ length: text.length }, () => []);
+  const hidden = new Array<boolean>(text.length).fill(false);
+  const math = new Map<number, { to: number; tex: string }>();
+  const mark = (from: number, to: number, cls: string) => {
+    for (let i = from; i < to; i++) classes[i]!.push(cls);
+  };
+  for (const s of spansOf(core, text)) {
+    const { from, to } = s.range;
+    const e = s.element;
+    const cls = e.kind === "link" || e.kind === "autolink" ? "cm-md-link" : markClass[e.kind];
+    if (cls) mark(from, to, cls);
+    if (e.kind === "math") math.set(from, { to, tex: e.tex });
+    if (e.kind !== "autolink") for (const m of s.marks) hidden.fill(true, m.from, m.to);
+  }
+  let i = 0;
+  while (i < text.length) {
+    const m = math.get(i);
+    if (m) {
+      out.append(typeset(core, m.tex, false, isDark));
+      i = m.to;
+      continue;
+    }
+    if (hidden[i]) {
+      i++;
+      continue;
+    }
+    const key = classes[i]!.join(" ");
+    let j = i + 1;
+    while (j < text.length && !hidden[j] && !math.has(j) && classes[j]!.join(" ") === key) j++;
+    const run = document.createElement("span");
+    run.className = key;
+    run.textContent = text.slice(i, j);
+    out.append(run);
+    i = j;
+  }
+  return out;
+}
 
 /** A GFM table, drawn as one (its cells' inline Markdown too). */
 class TableWidget extends WidgetType {
-  constructor(readonly source: string) {
+  constructor(
+    readonly core: Core,
+    readonly rows: string[][],
+    readonly alignments: Alignment[],
+    readonly dark: boolean,
+  ) {
     super();
   }
   eq(o: TableWidget) {
-    return o.source === this.source;
+    return JSON.stringify(o.rows) === JSON.stringify(this.rows) && o.alignments.join() === this.alignments.join() && o.dark === this.dark;
   }
   toDOM(view: EditorView) {
     const el = document.createElement("div");
     el.className = "cm-md-tableView";
-    el.innerHTML = DOMPurify.sanitize(tables.parse(this.source) as string);
-    editOnClick(el, view, 2);
+    const table = el.appendChild(document.createElement("table"));
+    this.rows.forEach((row, r) => {
+      const tr = table.appendChild(document.createElement("tr"));
+      row.forEach((cell, c) => {
+        const td = tr.appendChild(document.createElement(r === 0 ? "th" : "td"));
+        td.style.textAlign = this.alignments[c] ?? "left";
+        td.append(inline(this.core, cell, this.dark));
+      });
+    });
+    editOnClick(el, view);
     return el;
   }
   ignoreEvent() {
@@ -153,13 +271,13 @@ class RuleWidget extends WidgetType {
   }
 }
 
-/** Clicking rendered math or an image puts the cursor into what's written there. */
-function editOnClick(el: HTMLElement, view: EditorView, offset: number) {
+/** Clicking something drawn (math, a table, an image) while editing puts the cursor into what's written there. */
+function editOnClick(el: HTMLElement, view: EditorView) {
   el.addEventListener("mousedown", (e) => {
     if (view.state.readOnly) return;
     e.preventDefault();
     const at = view.posAtDOM(el);
-    view.dispatch({ selection: { anchor: Math.min(at + offset, view.state.doc.length) } });
+    view.dispatch({ selection: { anchor: Math.min(at, view.state.doc.length) } });
     view.focus();
   });
 }
@@ -170,6 +288,10 @@ const rule = Decoration.replace({ widget: new RuleWidget() });
 const line = (cls: string) => Decoration.line({ class: cls });
 
 function build(state: EditorState): DecorationSet {
+  const s = state.field(setup);
+  if (!s) return Decoration.none;
+  const { core } = s;
+  const isDark = state.field(dark);
   const out: Range<Decoration>[] = [];
   const ranges = state.facet(EditorState.readOnly) || !state.field(focused) ? [] : state.selection.ranges;
   /** Whether the cursor (or a selection) is in [from, to]. */
@@ -181,157 +303,116 @@ function build(state: EditorState): DecorationSet {
     const l = lineOf(pos);
     return touches(l.from, l.to);
   };
-  const tree = syntaxTree(state);
-  const text = state.doc.toString();
-  const folder = state.field(noteFolder);
-
-  // Math first: what's between its dollars isn't Markdown (a_1 … b_2 isn't emphasis).
-  const inCode = (pos: number) => {
-    for (let n: { name: string; parent: unknown } | null = tree.resolveInner(pos, 1); n; n = n.parent as typeof n) if (CODE.has(n.name)) return true;
-    return false;
+  const hideMarks = (span: Span) => {
+    for (const m of span.marks) if (m.to > m.from) out.push(hide.range(m.from, m.to));
   };
-  const math = mathRanges(text, inCode);
-  const inMath = (from: number, to: number) => math.some((m) => m.from < to && m.to > from);
-  for (const m of math) {
-    if (touches(m.from, m.to)) {
-      out.push(Decoration.mark({ class: "cm-md-mathSource" }).range(m.from, m.to));
-      continue;
-    }
-    const whole = m.block && lineOf(m.from).from === m.from && lineOf(m.to).to === m.to;
-    out.push(Decoration.replace({ widget: new MathWidget(m.tex, m.block), block: whole }).range(m.from, m.to));
-  }
-
-  /** Hides a mark, and the space after it (a heading's "# ", a quote's "> "). */
-  const hideMark = (from: number, to: number, withSpace = false) => {
-    if (withSpace && text[to] === " ") to++;
-    if (to > from) out.push(hide.range(from, to));
-  };
+  /** [widget] in place of whole lines [from]…[to]; what's inside them isn't styled on its own. */
   let replacedTo = -1;
-  tree.iterate({
-    enter: (node) => {
-      const { name, from, to } = node;
-      if (from < replacedTo) return false;
-      if (inMath(from, to) && !["Document", "Paragraph", "ListItem", "BulletList", "OrderedList", "Blockquote"].includes(name)) return false;
-      const heading = /^ATXHeading(\d)$/.exec(name);
-      if (heading) {
-        out.push(line(`cm-md-h cm-md-h${heading[1]}`).range(lineOf(from).from));
-        if (!lineTouched(from)) {
-          const mark = node.node.getChild("HeaderMark");
-          if (mark) hideMark(mark.from, mark.to, true);
+  const block = (widget: WidgetType, from: number, to: number) => {
+    const first = lineOf(from);
+    const last = lastLineOf(from, to);
+    out.push(Decoration.replace({ widget, block: true }).range(first.from, last.to));
+    replacedTo = last.to;
+  };
+
+  for (const span of spansOf(core, state.doc.toString())) {
+    const { from } = span.range;
+    const to = Math.min(span.range.to, state.doc.length);
+    if (to <= from || from < replacedTo) continue;
+    const editing = touches(from, to);
+    const e = span.element;
+    switch (e.kind) {
+      case "heading":
+        out.push(line(`cm-md-h cm-md-h${Math.min(e.level, 6)}`).range(lineOf(from).from));
+        if (!lineTouched(from)) hideMarks(span);
+        break;
+      case "emphasis":
+      case "strong":
+      case "strikethrough":
+      case "inlineCode":
+        out.push(Decoration.mark({ class: markClass[e.kind]! }).range(from, to));
+        if (!editing) hideMarks(span);
+        break;
+      case "link":
+      case "autolink":
+        out.push(Decoration.mark({ class: "cm-md-link", attributes: { "data-href": e.url, title: `${e.url} (⌘-click to open)` } }).range(from, to));
+        if (e.kind === "link" && !editing) hideMarks(span);
+        break;
+      case "math":
+        if (editing) {
+          out.push(Decoration.mark({ class: "cm-md-mathSource" }).range(from, to));
+        } else if (e.display && lineOf(from).from === from && lastLineOf(from, to).to === to) {
+          block(new MathWidget(core, e.tex, true, isDark), from, to);
+        } else {
+          out.push(Decoration.replace({ widget: new MathWidget(core, e.tex, e.display, isDark) }).range(from, to));
         }
-        return;
+        break;
+      case "bullet": {
+        const m = span.marks[0];
+        if (m && !lineTouched(from)) out.push(bullet.range(m.from, m.to));
+        break;
       }
-      switch (name) {
-        case "Emphasis":
-        case "StrongEmphasis":
-        case "Strikethrough":
-        case "InlineCode": {
-          if (touches(from, to)) return;
-          const mark = name === "InlineCode" ? "CodeMark" : name === "Strikethrough" ? "StrikethroughMark" : "EmphasisMark";
-          for (const m of node.node.getChildren(mark)) hideMark(m.from, m.to);
-          return name === "InlineCode" ? false : undefined;
+      case "task": {
+        const m = span.marks[0];
+        if (!m || touches(m.from, m.to)) break;
+        // "- [x]" and the space after it become the box.
+        const end = state.sliceDoc(m.to, m.to + 1) === " " ? m.to + 1 : m.to;
+        out.push(Decoration.replace({ widget: new CheckboxWidget(e.checked) }).range(m.from, end));
+        const l = lineOf(from);
+        if (e.checked && end < l.to) out.push(Decoration.mark({ class: "cm-md-done" }).range(end, l.to));
+        break;
+      }
+      case "quote":
+        for (let pos = from; pos < to; ) {
+          const l = lineOf(pos);
+          out.push(line("cm-md-quote").range(l.from));
+          pos = l.to + 1;
         }
-        case "Link": {
-          const url = node.node.getChild("URL");
-          const href = url ? state.sliceDoc(url.from, url.to) : "";
-          out.push(Decoration.mark({ class: "cm-md-link", attributes: { "data-href": href, title: href ? `${href} (⌘-click to open)` : "" } }).range(from, to));
-          if (touches(from, to)) return;
-          for (const m of node.node.getChildren("LinkMark")) hideMark(m.from, m.to);
-          if (url) hideMark(url.from, url.to);
-          const title = node.node.getChild("LinkTitle");
-          if (title) hideMark(title.from, title.to);
-          // The space between the URL and its title, inside the brackets, goes with them.
-          const marks = node.node.getChildren("LinkMark");
-          const open = marks[1];
-          const close = marks[marks.length - 1];
-          if (open && close && close.from > open.to) hideMark(open.to, close.from);
-          return false;
+        for (const m of span.marks) if (!lineTouched(m.from)) out.push(hide.range(m.from, m.to));
+        break;
+      case "rule":
+        if (!lineTouched(from)) out.push(rule.range(from, lastLineOf(from, to).to));
+        break;
+      case "codeBlock": {
+        if (e.language.toLowerCase() === "mermaid" && !editing) {
+          block(new DiagramWidget(core, e.code, isDark), from, to);
+          break;
         }
-        case "URL": {
-          // A bare web address (GFM autolink).
-          if (node.node.parent?.name === "Link" || node.node.parent?.name === "Image") return;
-          const href = state.sliceDoc(from, to);
-          out.push(Decoration.mark({ class: "cm-md-link", attributes: { "data-href": href, title: `${href} (⌘-click to open)` } }).range(from, to));
-          return;
+        const first = lineOf(from).number;
+        const last = lastLineOf(from, to).number;
+        const fences = new Set(span.marks.map((m) => lineOf(m.from).number));
+        for (let n = first; n <= last; n++) {
+          const fence = fences.has(n) && !editing;
+          out.push(line(`cm-md-code${n === first ? " cm-md-codeFirst" : ""}${n === last ? " cm-md-codeLast" : ""}${fence ? " cm-md-fence" : ""}`).range(state.doc.line(n).from));
         }
-        case "Image": {
-          if (touches(from, to)) return;
-          const url = node.node.getChild("URL");
-          const src = url ? state.sliceDoc(url.from, url.to).replace(/^<|>$/g, "") : "";
-          const marks = node.node.getChildren("LinkMark");
-          const alt = marks.length >= 2 ? state.sliceDoc(marks[0]!.to, marks[1]!.from) : "";
-          const path = resolveRelative(folder, src);
-          out.push(Decoration.replace({ widget: path === null ? new ImageWidget(src, alt, null) : new ImageWidget(path, alt, state.field(imageSource)) }).range(from, to));
+        break;
+      }
+      case "table": {
+        if (!editing) {
+          block(new TableWidget(core, e.rows, e.alignments, isDark), from, to);
+          break;
+        }
+        const first = lineOf(from).number;
+        const last = lastLineOf(from, to).number;
+        for (let n = first; n <= last; n++) out.push(line(n === first ? "cm-md-table cm-md-tableHead" : "cm-md-table").range(state.doc.line(n).from));
+        break;
+      }
+      case "image":
+        if (!editing) {
+          const path = core.linkPath(s.folder, e.url);
+          out.push(Decoration.replace({ widget: path === undefined ? new ImageWidget(e.url, e.alt, null) : new ImageWidget(path, e.alt, s.images) }).range(from, to));
           replacedTo = to;
-          return false;
         }
-        case "ListMark": {
-          if (lineTouched(from)) return;
-          const task = node.node.nextSibling?.name === "Task";
-          const mark = state.sliceDoc(from, to);
-          if (task) hideMark(from, to, true);
-          else if (/^[-*+]$/.test(mark)) out.push(bullet.range(from, to));
-          return;
-        }
-        case "TaskMarker": {
-          if (touches(from, to)) return;
-          out.push(Decoration.replace({ widget: new CheckboxWidget(/\[[xX]\]/.test(state.sliceDoc(from, to))) }).range(from, to));
-          if (/\[[xX]\]/.test(state.sliceDoc(from, to))) {
-            const l = lineOf(from);
-            if (to < l.to) out.push(Decoration.mark({ class: "cm-md-done" }).range(to, l.to));
-          }
-          return;
-        }
-        case "Blockquote": {
-          for (let pos = from; pos <= to; ) {
-            const l = lineOf(pos);
-            out.push(line("cm-md-quote").range(l.from));
-            pos = l.to + 1;
-          }
-          return;
-        }
-        case "QuoteMark": {
-          if (!lineTouched(from)) hideMark(from, to, true);
-          return;
-        }
-        case "HorizontalRule": {
-          if (!lineTouched(from)) out.push(rule.range(from, to));
-          return;
-        }
-        case "FencedCode":
-        case "CodeBlock": {
-          const first = lineOf(from).number;
-          const last = lastLineOf(from, to).number;
-          const editing = touches(from, to);
-          for (let n = first; n <= last; n++) {
-            const l = state.doc.line(n);
-            const fence = name === "FencedCode" && (n === first || n === last);
-            out.push(line(`cm-md-code${n === first ? " cm-md-codeFirst" : ""}${n === last ? " cm-md-codeLast" : ""}${fence && !editing ? " cm-md-fence" : ""}`).range(l.from));
-          }
-          return false;
-        }
-        case "Table": {
-          const first = lineOf(from);
-          const last = lastLineOf(from, to);
-          if (!touches(first.from, last.to)) {
-            out.push(Decoration.replace({ widget: new TableWidget(state.sliceDoc(first.from, last.to)), block: true }).range(first.from, last.to));
-            replacedTo = last.to;
-            return false;
-          }
-          for (let n = first.number; n <= last.number; n++) out.push(line(n === first.number ? "cm-md-table cm-md-tableHead" : "cm-md-table").range(state.doc.line(n).from));
-          return;
-        }
-      }
-    },
-  });
+        break;
+    }
+  }
   return Decoration.set(out, true);
 }
 
 const preview = StateField.define<DecorationSet>({
   create: build,
   update(deco, tr) {
-    const treeChanged = syntaxTree(tr.state) !== syntaxTree(tr.startState);
-    if (tr.docChanged || tr.selection || treeChanged || tr.effects.some((e) => e.is(focusChanged))) return build(tr.state);
+    if (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(focusChanged) || e.is(darkChanged)) || tr.startState.readOnly !== tr.state.readOnly) return build(tr.state);
     return deco;
   },
   provide: (f) => EditorView.decorations.from(f),
@@ -339,9 +420,9 @@ const preview = StateField.define<DecorationSet>({
 
 /**
  * ⌘/Ctrl-click a link to open it ([open] gets its address, and the drive file it points to, if
- * one); with a finger or pen (no keys to hold) a tap on a shown link opens it.
+ * one); with a finger or pen (no keys to hold), or while only reading, a tap on a link opens it.
  */
-function linkClicks(open: OpenLink) {
+function linkClicks() {
   let pointer = "mouse";
   return EditorView.domEventHandlers({
     pointerdown(e) {
@@ -350,12 +431,12 @@ function linkClicks(open: OpenLink) {
     },
     mousedown(e, view) {
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-href]");
-      if (!el || !(e.metaKey || e.ctrlKey || view.state.readOnly || pointer !== "mouse")) return false;
+      const s = view.state.field(setup);
+      if (!el || !s || !(e.metaKey || e.ctrlKey || view.state.readOnly || pointer !== "mouse")) return false;
       const href = el.dataset.href ?? "";
       if (!href) return false;
       e.preventDefault();
-      const path = resolveRelative(view.state.field(noteFolder), href.replace(/^<|>$/g, ""));
-      open(href, path);
+      s.open(href, s.core.linkPath(s.folder, href) ?? null);
       return true;
     },
     focus(_e, view) {
@@ -369,14 +450,11 @@ function linkClicks(open: OpenLink) {
   });
 }
 
-/** Opens a link: a web address, or (with [path]) a drive file. */
-export type OpenLink = (href: string, path: string | null) => void;
-
-/** The live preview, for a note in [folder]; its drive images come from [images]. */
-export const livePreview = (folder: string, open: OpenLink, images: ImageSource) => [
-  noteFolder.init(() => folder),
-  imageSource.init(() => images),
+/** The live preview, for a note in [folder] (drawn by [core]); its drive images come from [images]. */
+export const livePreview = (core: Core, folder: string, open: OpenLink, images: ImageSource, isDark: boolean) => [
+  setup.init(() => ({ core, folder, open, images })),
   focused,
+  dark.init(() => isDark),
   preview,
-  linkClicks(open),
+  linkClicks(),
 ];

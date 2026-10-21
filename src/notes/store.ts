@@ -1,7 +1,6 @@
 /**
- * Where a note is read from and written to: the drive over the API (the web app), or a native
- * app's own (the editor embedded in Android and macOS). Versions are the store's own: an ETag, or
- * whatever it uses to tell that the file changed elsewhere.
+ * Where a note is read from and written to (the drive, over the API). Versions are the store's
+ * own: an ETag, or whatever it uses to tell that the file changed elsewhere.
  */
 export interface NoteStore {
   /** The note as it's written now. */
@@ -21,10 +20,6 @@ export interface NoteStore {
   openLink(href: string, path: string | null): void;
   /** What's there now if the note changed since [version] (asked on coming back to the page); null if not. */
   changed?(path: string, version: Version): Promise<Loaded | null>;
-  /** Newer versions told by the host (instead of asking): shown if nothing's being edited. Returns an unsubscribe. */
-  watch?(onNewer: (loaded: Loaded) => void): () => void;
-  /** How saving is going, for the host's own display. */
-  status?(state: NoteStatus, message?: string): void;
   /** After a write (the web app refreshes its folder listing). */
   saved?(path: string): void;
 }

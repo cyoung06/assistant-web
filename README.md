@@ -8,7 +8,9 @@ React + TypeScript (Vite), TanStack Query, FullCalendar 6, plain CSS Modules. In
 Start the API first (`./gradlew bootTestRun` in `../api`), then:
 
 ```sh
+git submodule update --init   # core/: the notes' shared core (Rust), as the apps have it
 npm install
+npm run core       # builds it for the browser into generated/ (Rust with wasm32-unknown-unknown, wasm-bindgen-cli 0.2.129)
 npm run dev        # http://localhost:5173, proxies /api to :8080
 ```
 
@@ -16,6 +18,7 @@ npm run dev        # http://localhost:5173, proxies /api to :8080
 
 | | |
 |---|---|
+| `npm run core` | Build the shared core (`core/`) into `generated/`; again after it changes |
 | `npm run dev` | Dev server |
 | `npm run build` | Typecheck and production build into `dist/` |
 | `npm test` | Unit tests (calendar ↔ item mapping), run in Asia/Seoul |

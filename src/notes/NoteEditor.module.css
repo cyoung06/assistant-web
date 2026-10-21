@@ -1,3 +1,9 @@
+/* Code's typeface, the one the apps bundle (core/fonts). */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../core/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  font-display: swap;
+}
 .note {
   flex: 1;
   min-height: 0;

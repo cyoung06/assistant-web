@@ -1,9 +1,18 @@
+# The shared core (core/, the assistant-core submodule) for the browser: what build-core.sh makes.
+FROM rust:1.99.1-slim-bookworm AS core
+RUN rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli --version 0.2.129 --locked
+WORKDIR /src/core
+COPY core/ ./
+RUN cargo build --release --lib --target wasm32-unknown-unknown --features web \
+ && wasm-bindgen --target web --out-dir /src/generated target/wasm32-unknown-unknown/release/assistant_core.wasm
+
 # Build
 FROM node:24.22.0-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+COPY --from=core /src/generated ./generated
 RUN npm run build
 
 # Serve

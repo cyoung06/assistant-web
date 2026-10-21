@@ -8,14 +8,13 @@ import { Annotation, Compartment, EditorSelection, EditorState, type Extension }
 import { drawSelection, EditorView, keymap, placeholder, type Command } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import { useQueryClient } from "@tanstack/react-query";
-import "katex/dist/katex.min.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
+import { loadCore, type Core, type Edit, type SlashItem } from "./core";
 import { drafts } from "./drafts";
 import { freshNotes } from "./fresh";
-import { livePreview } from "./livePreview";
+import { darkChanged, livePreview } from "./livePreview";
 import { openNotes } from "./open";
-import { applyTemplate, SLASH_ITEMS, toggleWrap } from "./md";
 import styles from "./NoteEditor.module.css";
 import { strongTag, type NoteStatus as Status, type NoteStore, type Version } from "./store";
 import { webStore } from "./webStore";
@@ -30,13 +29,16 @@ const STATUS: Record<Status, string> = {
   readonly: "Read-only",
 };
 
+/** Code's typeface (the one the apps bundle), then the text's for what it hasn't (Hangul). */
+const MONO = `"JetBrains Mono", "Pretendard Variable", Pretendard, monospace`;
+
 /** Code and Markdown colours, from the app's own (so light and dark both work). */
 const highlight = HighlightStyle.define([
   { tag: t.heading, fontWeight: "700" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strong, fontWeight: "700" },
   { tag: t.strikethrough, textDecoration: "line-through", color: "var(--text-3)" },
-  { tag: t.monospace, fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)", fontSize: "0.9em" },
+  { tag: t.monospace, fontFamily: MONO, fontSize: "0.9em" },
   { tag: t.link, color: "var(--accent)" },
   { tag: t.url, color: "var(--text-3)" },
   { tag: [t.processingInstruction, t.contentSeparator, t.meta], color: "var(--text-3)" },
@@ -51,13 +53,13 @@ const highlight = HighlightStyle.define([
 
 /** Toggles [mark] around each selection (⌘B, ⌘I). */
 const wrap =
-  (mark: string): Command =>
+  (core: Core, mark: string): Command =>
   (view) => {
     if (view.state.readOnly) return false;
     const doc = view.state.doc.toString();
     view.dispatch(
       view.state.changeByRange((r) => {
-        const w = toggleWrap(doc, r.from, r.to, mark);
+        const w = core.toggleWrap(doc, r.from, r.to, mark) as Edit;
         return { changes: w.changes, range: EditorSelection.range(w.anchor, w.head) };
       }),
     );
@@ -76,22 +78,22 @@ const link: Command = (view) => {
 };
 
 /** The "/" menu: typing "/" at the start of a line or after a space offers blocks to insert. */
-function slashMenu(ctx: CompletionContext) {
+const slashMenu = (items: SlashItem[]) => (ctx: CompletionContext) => {
   const m = ctx.matchBefore(/(?:^|\s)\/[\w ]*$/);
   if (!m) return null;
   const slash = m.text.lastIndexOf("/") + m.from;
-  const options: Completion[] = SLASH_ITEMS.map((item) => ({
+  const options: Completion[] = items.map((item) => ({
     label: item.label,
-    detail: item.template.split("\n")[0]!.replace("|", "").trim() || undefined,
+    detail: item.text.split("\n")[0]!.trim() || undefined,
     type: "text",
     boost: 0,
     apply: (view, _c, _from, to) => {
-      const { text, cursor } = applyTemplate(item.template);
-      view.dispatch({ changes: { from: slash, to, insert: text }, selection: { anchor: slash + cursor } });
+      view.dispatch({ changes: { from: slash, to, insert: item.text }, selection: { anchor: slash + item.cursor } });
     },
   }));
   return { from: slash + 1, options, validFor: /^[\w ]*$/, filter: true };
-}
+};
+
 
 /** The editor's look: a readable column, sized headings, rendered pieces. */
 const theme = EditorView.theme({
@@ -107,6 +109,12 @@ const theme = EditorView.theme({
   ".cm-md-h2": { fontSize: "1.5em", paddingTop: "0.55em", paddingBottom: "0.1em" },
   ".cm-md-h3": { fontSize: "1.25em", paddingTop: "0.45em" },
   ".cm-md-h4, .cm-md-h5, .cm-md-h6": { fontSize: "1.05em", paddingTop: "0.35em" },
+  ".cm-md-em": { fontStyle: "italic" },
+  ".cm-md-strong": { fontWeight: "700" },
+  ".cm-md-strike": { textDecoration: "line-through", color: "var(--text-3)" },
+  // Its size is the highlighting's (monospace), or in a table's cells, its own.
+  ".cm-md-inlineCode": { fontFamily: MONO },
+  ".cm-md-tableView .cm-md-inlineCode": { fontSize: "0.9em" },
   ".cm-md-link": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px", cursor: "pointer" },
   ".cm-md-bullet": { color: "var(--text-2)", display: "inline-block", width: "0.9em", textAlign: "center", fontWeight: "700" },
   ".cm-md-task": { margin: "0 0.45em 0 0", width: "1.05em", height: "1.05em", verticalAlign: "-0.15em", accentColor: "var(--accent)", cursor: "pointer" },
@@ -114,7 +122,7 @@ const theme = EditorView.theme({
   ".cm-md-quote": { borderLeft: "3px solid var(--line-strong)", paddingLeft: "14px !important", color: "var(--text-2)" },
   ".cm-md-hr": { display: "inline-block", width: "100%", height: "0", borderTop: "1px solid var(--line-strong)", verticalAlign: "middle" },
   ".cm-md-code": {
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontFamily: MONO,
     fontSize: "0.88em",
     backgroundColor: "var(--surface-2)",
     padding: "0 14px !important",
@@ -122,7 +130,7 @@ const theme = EditorView.theme({
   ".cm-md-codeFirst": { borderTopLeftRadius: "8px", borderTopRightRadius: "8px", paddingTop: "4px !important" },
   ".cm-md-codeLast": { borderBottomLeftRadius: "8px", borderBottomRightRadius: "8px", paddingBottom: "4px !important" },
   ".cm-md-fence": { color: "var(--text-3)", fontSize: "0.75em" },
-  ".cm-md-table": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "0.88em", whiteSpace: "pre" },
+  ".cm-md-table": { fontFamily: MONO, fontSize: "0.88em", whiteSpace: "pre" },
   ".cm-md-tableHead": { fontWeight: "700" },
   ".cm-md-tableView": { padding: "6px 0", overflowX: "auto", cursor: "text" },
   ".cm-md-tableView table": { borderCollapse: "collapse", fontSize: "0.95em" },
@@ -130,12 +138,15 @@ const theme = EditorView.theme({
   ".cm-md-tableView th": { backgroundColor: "var(--surface-2)", fontWeight: "600" },
   ".cm-md-math": { cursor: "text" },
   ".cm-md-mathBlock": { display: "block", textAlign: "center", padding: "6px 0", overflowX: "auto" },
-  ".cm-md-mathSource": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "0.9em", color: "var(--accent)" },
+  ".cm-md-mathError": { color: "var(--danger)", fontFamily: MONO, fontSize: "0.9em" },
+  ".cm-md-diagram": { display: "block", padding: "6px 0", overflowX: "auto", cursor: "text" },
+  ".cm-md-diagram svg": { maxWidth: "100%", height: "auto" },
+  ".cm-md-mathSource": { fontFamily: MONO, fontSize: "0.9em", color: "var(--accent)" },
   ".cm-md-image": { maxWidth: "100%", maxHeight: "60vh", borderRadius: "6px", display: "inline-block", verticalAlign: "top", cursor: "text" },
   ".cm-tooltip.cm-tooltip-autocomplete": { border: "1px solid var(--line)", borderRadius: "8px", backgroundColor: "var(--surface)", boxShadow: "var(--shadow)", overflow: "hidden" },
   ".cm-tooltip-autocomplete > ul > li": { padding: "5px 12px !important", fontFamily: "var(--font-ui)", fontSize: "14px" },
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "var(--accent-soft)", color: "var(--text)" },
-  ".cm-completionDetail": { color: "var(--text-3)", fontStyle: "normal", marginLeft: "12px", fontFamily: "ui-monospace, monospace", fontSize: "12px" },
+  ".cm-completionDetail": { color: "var(--text-3)", fontStyle: "normal", marginLeft: "12px", fontFamily: MONO, fontSize: "12px" },
   ".cm-panels": { backgroundColor: "var(--surface-2)", color: "var(--text)", borderColor: "var(--line)" },
   ".cm-searchMatch": { backgroundColor: "var(--warn)", opacity: "0.6" },
   ".cm-placeholder": { color: "var(--text-3)" },
@@ -144,10 +155,30 @@ const theme = EditorView.theme({
 /** Changes that aren't typing (another version loaded): not saved back. */
 const loaded = Annotation.define<boolean>();
 
+/** Whether the page shows dark (the app's theme, or the system's when it follows that). */
+function pageIsDark() {
+  const theme = document.documentElement.dataset.theme;
+  return theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+
+/** Calls [changed] whenever the page turns light or dark; returns a stop. */
+function watchDark(changed: (dark: boolean) => void) {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const tell = () => changed(pageIsDark());
+  const attr = new MutationObserver(tell);
+  attr.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  media.addEventListener("change", tell);
+  return () => {
+    attr.disconnect();
+    media.removeEventListener("change", tell);
+  };
+}
+
 /**
- * A Markdown note (with $…$ and $$…$$ math) from the drive, edited in place: it reads as rendered
- * except where the cursor is, and saves itself a second after typing stops (and on leaving). If the
- * file changed elsewhere meanwhile, nothing is overwritten: you choose. Course files only read.
+ * A Markdown note (with $…$ and $$…$$ math, and Mermaid diagrams) from the drive. It opens to read,
+ * rendered; Edit to write in it, where it reads as rendered except where the cursor is, and saves
+ * itself a second after typing stops (and on leaving). If the file changed elsewhere meanwhile,
+ * nothing is overwritten: you choose. Course files only read.
  */
 export default function NoteEditor({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
   const qc = useQueryClient();
@@ -157,41 +188,24 @@ export default function NoteEditor({ path, entry, openPath }: { path: string; en
   return <Note path={path} store={store} locked={readOnly(path)} entry={entry} />;
 }
 
-/** What a host can do to an open note. [flush] is true once everything typed is written. */
-export type NoteControls = { flush: () => Promise<boolean>; setSource: (on: boolean) => void };
-
-/**
- * A note, read and written through [store]. [embedded] (in a native app) leaves out the bar: the
- * host shows the status (told through the store) and its own actions; [onControls] gets what it
- * can do to the note. [initial] is the note as the host already has it (not read again).
- */
-export function Note({
-  path,
-  store,
-  locked,
-  entry,
-  embedded = false,
-  initial,
-  onControls,
-}: {
-  path: string;
-  store: NoteStore;
-  locked: boolean;
-  entry?: DriveEntry;
-  embedded?: boolean;
-  initial?: { text: string; version: Version };
-  onControls?: (controls: NoteControls) => void;
-}) {
+/** A note, read and written through [store]. */
+function Note({ path, store, locked, entry }: { path: string; store: NoteStore; locked: boolean; entry?: DriveEntry }) {
   const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
+  /** Opened (there's a note to edit). */
+  const [ready, setReady] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [source, setSource] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const controls = useRef<{ setSource: (on: boolean) => void; retry: () => void; overwrite: () => void; loadTheirs: () => void; saveCopy: () => void } | null>(null);
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
-  const onControlsRef = useRef(onControls);
-  onControlsRef.current = onControls;
+  const controls = useRef<{
+    setEditing: (on: boolean) => void;
+    setSource: (on: boolean) => void;
+    retry: () => void;
+    overwrite: () => void;
+    loadTheirs: () => void;
+    saveCopy: () => void;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -204,13 +218,14 @@ export function Note({
     let conflicted = false;
     /** Deleted: nothing's written back. */
     let gone = false;
+    let core: Core | null = null;
+    let source = false;
     const folder = parentOf(path);
+    /** Reading (rendered, nothing to type into) or writing. */
+    const access = new Compartment();
+    /** The live preview, or (Source) none. */
     const mode = new Compartment();
-    const set = (s: Status, message?: string) => {
-      if (!alive) return;
-      setStatus(s);
-      store.status?.(s, message);
-    };
+    const set = (s: Status) => alive && setStatus(s);
 
     /** Keeps what's unsaved as a draft (in case it never gets written); none once it's all written. */
     const keep = () => {
@@ -245,7 +260,7 @@ export function Note({
             set("conflict");
           } else {
             setError((e as Error).message);
-            set("error", (e as Error).message);
+            set("error");
           }
         } finally {
           saving = null;
@@ -276,7 +291,7 @@ export function Note({
       if (draft.text === text) return drafts.clear(path);
       replace(draft.text);
       dirty = true;
-      const same = (draft.base.etag && version.etag ? strongTag(draft.base.etag) === strongTag(version.etag) : draft.base.modified === version.modified);
+      const same = draft.base.etag && version.etag ? strongTag(draft.base.etag) === strongTag(version.etag) : draft.base.modified === version.modified;
       if (same) {
         set("unsaved");
         later();
@@ -292,16 +307,13 @@ export function Note({
       if (!view || dirty || saving || conflicted || !store.changed) return;
       try {
         const fresh = await store.changed(path, version);
-        if (fresh) newer(fresh);
+        if (fresh && view && !dirty && !saving && !conflicted) {
+          if (fresh.text !== view.state.doc.toString()) replace(fresh.text);
+          version = fresh.version;
+        }
       } catch {
         // Offline for a moment: checked again next time.
       }
-    };
-    /** A newer version (found, or told by the host): shown if nothing's being edited. */
-    const newer = (fresh: { text: string; version: Version }) => {
-      if (!view || dirty || saving || conflicted) return;
-      if (fresh.text !== view.state.doc.toString()) replace(fresh.text);
-      version = fresh.version;
     };
 
     /** Uploads images (pasted or dropped) next to the note, in attachments/, and links them at [at]. */
@@ -323,13 +335,28 @@ export function Note({
     };
     const imagesIn = (data: DataTransfer | null) => [...(data?.files ?? [])].filter((f) => f.type.startsWith("image/"));
 
-    const live = (): Extension => livePreview(folder, (href, p) => store.openLink(href, p), (p) => store.imageSrc(p));
+    const live = (): Extension => (source || !core ? [] : livePreview(core, folder, (href, p) => store.openLink(href, p), (p) => store.imageSrc(p), pageIsDark()));
+    const writable = (on: boolean): Extension => [EditorState.readOnly.of(!on), EditorView.editable.of(on)];
 
-    const given = initialRef.current;
-    (given ? Promise.resolve(given) : store.read(path))
-      .then(({ text, version: v }) => {
+    /** Reading or writing: leaving writing saves what's typed. */
+    const edit = (on: boolean) => {
+      if (!view || (on && locked)) return;
+      view.dispatch({ effects: access.reconfigure(writable(on)) });
+      if (alive) setEditing(on);
+      if (on) view.focus();
+      else {
+        keep();
+        void save();
+      }
+    };
+
+    Promise.all([store.read(path), loadCore()])
+      .then(([{ text, version: v }, c]) => {
         if (!alive || !host.current) return;
         version = v;
+        core = c;
+        // A note just made opens to write in, its title selected to type over.
+        const fresh = freshNotes.delete(path) && !locked;
         view = new EditorView({
           parent: host.current,
           state: EditorState.create({
@@ -344,11 +371,11 @@ export function Note({
               syntaxHighlighting(highlight),
               search({ top: true }),
               highlightSelectionMatches(),
-              autocompletion({ override: [slashMenu], icons: false, defaultKeymap: true }),
+              autocompletion({ override: [slashMenu(c.slashItems() as SlashItem[])], icons: false, defaultKeymap: true }),
               placeholder("Write, or type / for blocks…"),
               keymap.of([
-                { key: "Mod-b", run: wrap("**") },
-                { key: "Mod-i", run: wrap("*") },
+                { key: "Mod-b", run: wrap(c, "**") },
+                { key: "Mod-i", run: wrap(c, "*") },
                 { key: "Mod-k", run: link },
                 { key: "Mod-s", run: () => (void save(), true) },
                 { key: "Tab", run: indentMore, shift: indentLess },
@@ -357,8 +384,7 @@ export function Note({
                 ...historyKeymap,
                 ...defaultKeymap,
               ]),
-              EditorState.readOnly.of(locked),
-              EditorView.editable.of(!locked),
+              access.of(writable(fresh)),
               theme,
               mode.of(live()),
               EditorView.updateListener.of((u) => {
@@ -372,14 +398,14 @@ export function Note({
                 blur: () => (keep(), void save()),
                 paste: (e, v) => {
                   const files = imagesIn(e.clipboardData);
-                  if (!files.length || locked) return false;
+                  if (!files.length || v.state.readOnly) return false;
                   e.preventDefault();
                   void insertImages(files, v.state.selection.main.head);
                   return true;
                 },
                 drop: (e, v) => {
                   const files = imagesIn(e.dataTransfer);
-                  if (!files.length || locked) return false;
+                  if (!files.length || v.state.readOnly) return false;
                   e.preventDefault();
                   e.stopPropagation();
                   void insertImages(files, v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head);
@@ -396,23 +422,28 @@ export function Note({
         // For checking it in a browser while developing.
         if (import.meta.env.DEV) (window as unknown as { __noteView?: EditorView }).__noteView = view;
         set(locked ? "readonly" : "saved");
+        setReady(true);
         restore(text);
-        // A note just made: its title selected, to type over.
-        if (freshNotes.delete(path)) {
+        if (fresh) {
+          setEditing(true);
           const first = view.state.doc.line(1);
           const title = /^#\s+/.exec(first.text);
           view.dispatch({ selection: title ? EditorSelection.range(first.from + title[0].length, first.to) : EditorSelection.cursor(first.to) });
+          view.focus();
         }
-        if (!locked) view.focus();
       })
       .catch((e: Error) => {
         setError(e.message);
-        set("error", e.message);
+        set("error");
       });
-    const unwatch = store.watch?.(newer);
+    const unwatchDark = watchDark((dark) => view?.dispatch({ effects: darkChanged.of(dark) }));
 
     controls.current = {
-      setSource: (on) => view?.dispatch({ effects: mode.reconfigure(on ? [] : live()) }),
+      setEditing: edit,
+      setSource: (on) => {
+        source = on;
+        view?.dispatch({ effects: mode.reconfigure(live()) });
+      },
       retry: () => void save(),
       overwrite: () => void save(true),
       loadTheirs: () =>
@@ -456,20 +487,13 @@ export function Note({
         if (!stopped && dirty && !conflicted) later();
       },
     });
-    onControlsRef.current?.({
-      flush,
-      setSource: (on) => {
-        controls.current?.setSource(on);
-        setSource(on);
-      },
-    });
 
     const onFocus = () => void recheck();
     const onHide = () => document.visibilityState === "hidden" && (keep(), void save());
     const onUnload = () => (keep(), void save(false, true));
     // Closing the tab while something isn't written: the browser asks first (it's kept as a draft either way).
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (embedded || locked || gone || !(dirty || saving || conflicted)) return;
+      if (locked || gone || !(dirty || saving || conflicted)) return;
       keep();
       e.preventDefault();
     };
@@ -484,24 +508,24 @@ export function Note({
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onUnload);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      unwatchDark();
       if (openNotes.get(path)?.flush === flush) openNotes.delete(path);
-      unwatch?.();
       // Leaving the note: what's unsaved is kept as a draft, and goes now.
       keep();
       void save();
       view?.destroy();
     };
-  }, [path, locked, store, embedded]);
+  }, [path, locked, store]);
 
   return (
     <div className={styles.note}>
-      {!embedded && (
-        <div className={styles.bar}>
-          <span className={`${styles.status} ${status === "error" || status === "conflict" ? styles.bad : ""}`} title={error ?? undefined}>
-            {STATUS[status]}
-          </span>
-          {entry && <span className={styles.meta}>{size(entry.size)}</span>}
-          <span className={styles.spacer} />
+      <div className={styles.bar}>
+        <span className={`${styles.status} ${status === "error" || status === "conflict" ? styles.bad : ""}`} title={error ?? undefined}>
+          {STATUS[status]}
+        </span>
+        {entry && <span className={styles.meta}>{size(entry.size)}</span>}
+        <span className={styles.spacer} />
+        {editing && (
           <button
             className="btn btn-ghost"
             onClick={() => {
@@ -512,11 +536,16 @@ export function Note({
           >
             {source ? "Live preview" : "Source"}
           </button>
-          <a className="btn btn-ghost" href={fileUrl(path)} download={path.split("/").pop()}>
-            Download
-          </a>
-        </div>
-      )}
+        )}
+        <a className="btn btn-ghost" href={fileUrl(path)} download={path.split("/").pop()}>
+          Download
+        </a>
+        {!locked && ready && (
+          <button className={editing ? "btn btn-primary" : "btn"} onClick={() => controls.current?.setEditing(!editing)}>
+            {editing ? "Done" : "Edit"}
+          </button>
+        )}
+      </div>
       {status === "conflict" && (
         <div className={styles.banner} role="alert">
           <span>This note was changed somewhere else since you opened it.</span>
@@ -544,9 +573,7 @@ export function Note({
           </button>
         </div>
       )}
-      {locked && (
-        <div className={styles.banner}>{readOnly(path) ? "From PLMS, kept as it is there. Copy it out of Course files to write in it." : "Read-only."}</div>
-      )}
+      {locked && <div className={styles.banner}>From PLMS, kept as it is there. Copy it out of Course files to write in it.</div>}
       <div ref={host} className={styles.editor} />
     </div>
   );
