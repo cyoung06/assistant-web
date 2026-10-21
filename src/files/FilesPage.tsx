@@ -29,6 +29,8 @@ let clipboard: Clip | null = null;
 type Tab = { path: string; pinned: boolean };
 /** Each storage's open tabs, kept while the app runs (switching pages and back keeps them). */
 const tabsByRoot = new Map<string, Tab[]>();
+/** Each storage's file shown beside the main one (a note beside a PDF, say), kept the same way. */
+const besideByRoot = new Map<string, string | null>();
 
 /** Where [e] goes when put into [folder]. */
 const into = (folder: string, e: { name: string; folder: boolean }) => folder + e.name + (e.folder ? "/" : "");
@@ -98,6 +100,9 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   useEffect(() => store("files.tree", tree ? "on" : "off"), [tree]);
 
   const [tabs, setTabsState] = useState<Tab[]>(() => tabsByRoot.get(root) ?? []);
+  const [beside, setBesideState] = useState<string | null>(() => besideByRoot.get(root) ?? null);
+  useEffect(() => setBesideState(besideByRoot.get(root) ?? null), [root]);
+  const setBeside = (p: string | null) => (besideByRoot.set(root, p), setBesideState(p));
   useEffect(() => setTabsState(tabsByRoot.get(root) ?? []), [root]);
   const setTabs = useCallback(
     (change: (old: Tab[]) => Tab[]) =>
@@ -226,6 +231,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     const items: MenuAction[] = [];
     if (e) {
       items.push({ label: "Open", hint: e.folder ? undefined : "Double-click", run: () => open(e, true) });
+      if (!e.folder && !narrow) items.push({ label: "Open beside", run: () => setBeside(e.path) });
       items.push({ label: "Open in new tab", run: () => window.open(e.folder ? appUrl(e.path) : fileUrl(e.path), "_blank", "noopener") });
       if (!e.folder) items.push({ label: "Download", run: () => download(e) });
       items.push("-", { label: "Copy", hint: "⌘C", run: () => keep({ path: e.path, name: e.name, folder: e.folder, cut: false }) });
@@ -494,6 +500,17 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
               </div>
             )}
             {viewing && !entry?.folder ? <FileViewer key={viewing} path={viewing} entry={entry} openPath={(p) => open(known.get(p) ?? fileEntry(p), true)} /> : <FolderView folder={path} view={view} ops={ops} />}
+          </section>
+        )}
+        {beside && !narrow && (
+          <section className={`${styles.pane} ${styles.beside}`} aria-label="Beside">
+            <div className={styles.besideBar}>
+              <span className={styles.tabName}>{beside.split("/").pop()}</span>
+              <button className={styles.tabClose} onClick={() => setBeside(null)} aria-label="Close the file beside">
+                ×
+              </button>
+            </div>
+            <FileViewer key={beside} path={beside} entry={known.get(beside)} openPath={(p) => setBeside(p)} />
           </section>
         )}
       </div>

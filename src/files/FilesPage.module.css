@@ -273,3 +273,22 @@
     background: var(--surface);
   }
 }
+
+/* A second file, beside the main one. */
+.beside {
+  border-left: 1px solid var(--line);
+}
+.besideBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--text-xs);
+}
+.besideBar .tabName {
+  flex: 1;
+}
