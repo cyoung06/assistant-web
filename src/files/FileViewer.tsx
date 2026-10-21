@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { Marked } from "marked";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { fileUrl, kind, parentOf, size, type DriveEntry } from "./api";
+import { fileUrl, kind, parentOf, readOnly, size, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
 
 /** The note editor (CodeMirror and KaTeX), loaded when a note is first opened. */
 const NoteEditor = lazy(() => import("../notes/NoteEditor"));
+const Notebook = lazy(() => import("../notebooks/Notebook"));
 
 /** Text files larger than this aren't previewed (download them instead). */
 const TEXT_LIMIT = 2 * 1024 * 1024;
@@ -50,6 +51,8 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
   const url = fileUrl(path);
   const [actual, setActual] = useState(false);
   const [source, setSource] = useState(false);
+  /** A PDF written on (live, with every device on it), instead of the browser's viewer. */
+  const [writing, setWriting] = useState(false);
 
   const big = (entry?.size ?? 0) > TEXT_LIMIT;
   const text = useQuery({
@@ -74,6 +77,11 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
             {source ? "Rendered" : "Source"}
           </button>
         )}
+        {k === "pdf" && !readOnly(path) && (
+          <button className={writing ? "btn btn-primary" : "btn"} onClick={() => setWriting((w) => !w)} title={writing ? "Back to the PDF viewer" : "Write on it with a pen, live with your other devices"}>
+            {writing ? "Done" : "Write on it"}
+          </button>
+        )}
         <a className="btn btn-ghost" href={url} target="_blank" rel="noreferrer">
           Open in tab
         </a>
@@ -82,7 +90,11 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
         </a>
       </div>
       <div className={styles.content}>
-        {k === "pdf" ? (
+        {k === "pdf" && writing ? (
+          <Suspense fallback={<p className={styles.note}>Opening…</p>}>
+            <Notebook key={path} path={path} />
+          </Suspense>
+        ) : k === "pdf" ? (
           <iframe key={path} className={styles.frame} src={url} title={name} />
         ) : k === "image" ? (
           <div className={`${styles.imageBox} ${actual ? styles.actual : ""}`} onClick={() => setActual((a) => !a)} title={actual ? "Fit to the pane" : "Actual size"}>
