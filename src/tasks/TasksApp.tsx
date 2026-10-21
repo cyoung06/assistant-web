@@ -128,7 +128,7 @@ function TasksPage({
   if (project && tab === "files") {
     return (
       <div className={styles.page}>
-        <ProjectHeader project={project} back={back} openInitiative={openInitiative} />
+        <ProjectHeader project={project} back={back} openInitiative={openInitiative} schedule={false} />
         {tabs}
         <div className={styles.filesTab}>
           <ProjectFiles projectId={project.id} projectName={project.name} />
@@ -285,7 +285,18 @@ function ProjectsPage({ open }: { open: (id: string) => void }) {
   );
 }
 
-function ProjectHeader({ project: p, back, openInitiative }: { project: Project | undefined; back: () => void; openInitiative: (id: string) => void }) {
+/** A project's header; [schedule] (its class times) where its tasks are, not beside its files. */
+function ProjectHeader({
+  project: p,
+  back,
+  openInitiative,
+  schedule = true,
+}: {
+  project: Project | undefined;
+  back: () => void;
+  openInitiative: (id: string) => void;
+  schedule?: boolean;
+}) {
   const { update, remove } = useProjectMutations();
   const [confirm, setConfirm] = useState(false);
   if (!p) return null;
@@ -345,7 +356,7 @@ function ProjectHeader({ project: p, back, openInitiative }: { project: Project 
           </button>
         )}
       </div>
-      <ProjectSchedule projectId={p.id} projectName={p.name} />
+      {schedule && <ProjectSchedule projectId={p.id} projectName={p.name} />}
     </>
   );
 }
