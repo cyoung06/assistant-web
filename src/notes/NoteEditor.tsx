@@ -97,6 +97,41 @@ const slashMenu = (items: SlashItem[]) => (ctx: CompletionContext) => {
 };
 
 
+/** A reference's drive path, when it's a note or file in the drive (its page in the app: /files/<path under Projects/>). */
+const drivePathOf = (url: string) => {
+  const m = /^(?:https?:\/\/[^/]+)?\/files\/([^?#]+)$/.exec(url);
+  return m ? "Projects/" + m[1]!.split("/").map(decodeURIComponent).join("/") : null;
+};
+
+/**
+ * "[[": links to anything, found as it's typed (tasks, events, notes and files, mail, PLMS...),
+ * written as a Markdown link; one to a drive note or file relative to this note, as notes link files.
+ */
+const linkMenu = (core: Core, folder: string) => async (ctx: CompletionContext) => {
+  const m = ctx.matchBefore(/\[\[[^\]\n]*$/);
+  if (!m) return null;
+  const q = m.text.slice(2);
+  const controller = new AbortController();
+  ctx.addEventListener("abort", () => controller.abort());
+  const res = await fetch(`/api/v1/refs?q=${encodeURIComponent(q)}&limit=12`, { signal: controller.signal }).catch(() => null);
+  if (!res?.ok) return null;
+  const refs = (await res.json()) as { kind: string; title: string; url: string; context?: string }[];
+  const options: Completion[] = refs.map((r) => ({
+    label: r.title,
+    detail: [r.kind.replace(/_/g, " "), r.context].filter(Boolean).join(" · "),
+    type: "text",
+    apply: (view, _c, _from, to) => {
+      const path = drivePathOf(r.url);
+      const href = path ? core.relativeLink(folder, path) : r.url;
+      const text = `[${r.title.replace(/([[\]])/g, "\\$1")}](${href})`;
+      // The "]]" brackets were closed with, if they're there.
+      const after = view.state.sliceDoc(to, to + 2) === "]]" ? to + 2 : to;
+      view.dispatch({ changes: { from: m.from, to: after, insert: text }, selection: { anchor: m.from + text.length } });
+    },
+  }));
+  return { from: m.from + 2, options, filter: false };
+};
+
 /** The editor's look: a readable column, sized headings, rendered pieces. */
 const theme = EditorView.theme({
   "&": { height: "100%", fontSize: "16px", backgroundColor: "var(--surface)", color: "var(--text)" },
@@ -271,7 +306,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
             syntaxHighlighting(highlight),
             search({ top: true }),
             highlightSelectionMatches(),
-            autocompletion({ override: [slashMenu(c.slashItems() as SlashItem[])], icons: false, defaultKeymap: true }),
+            autocompletion({ override: [slashMenu(c.slashItems() as SlashItem[]), linkMenu(c, parentOf(path))], icons: false, defaultKeymap: true }),
             placeholder("Write, or type / for blocks…"),
             shared,
             keymap.of([

@@ -1,3 +1,29 @@
+.withLinks {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.withLinks > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
+.linkedFrom {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--line);
+}
+.linkedFrom :global(.btn) {
+  height: 26px;
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
 .viewer {
   flex: 1;
   min-height: 0;

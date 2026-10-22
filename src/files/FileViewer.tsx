@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { Marked } from "marked";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { fileUrl, kind, parentOf, readOnly, size, useAnnotation, useAnnotationMutations, useFileState, writeOnOpen, type DriveEntry } from "./api";
+import { useBacklinks } from "../refs/api";
+import { fileUrl, filesRoute, kind, parentOf, readOnly, size, useAnnotation, useAnnotationMutations, useFileState, writeOnOpen, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
 
 /** The note editor (CodeMirror and KaTeX), loaded when a note is first opened. */
@@ -34,14 +35,43 @@ function renderMarkdown(text: string, folder: string) {
  */
 export function FileViewer({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
   const name = path.split("/").pop() ?? path;
-  // Notes open in the editor (rendered as they're written).
-  if (isMarkdown(name) && (entry?.size ?? 0) <= TEXT_LIMIT)
-    return (
-      <Suspense fallback={<p className={styles.note}>Opening…</p>}>
-        <NoteEditor path={path} entry={entry} openPath={openPath} />
-      </Suspense>
-    );
-  return <Viewer path={path} entry={entry} openPath={openPath} />;
+  return (
+    <div className={styles.withLinks}>
+      {/* Notes open in the editor (rendered as they're written). */}
+      {isMarkdown(name) && (entry?.size ?? 0) <= TEXT_LIMIT ? (
+        <Suspense fallback={<p className={styles.note}>Opening…</p>}>
+          <NoteEditor path={path} entry={entry} openPath={openPath} />
+        </Suspense>
+      ) : (
+        <Viewer path={path} entry={entry} openPath={openPath} />
+      )}
+      <LinkedFrom path={path} openPath={openPath} />
+    </div>
+  );
+}
+
+/** The notes (and tasks, events) that link to the file at [path]. */
+function LinkedFrom({ path, openPath }: { path: string; openPath: (path: string) => void }) {
+  const backlinks = useBacklinks(`${location.origin}/${filesRoute(path.replace(/^Projects\//, ""))}`);
+  const list = backlinks.data ?? [];
+  if (!list.length) return null;
+  return (
+    <div className={styles.linkedFrom}>
+      <span className={styles.meta}>Linked from</span>
+      {list.map((r) => {
+        const page = /\/files\/([^?#]+)$/.exec(r.url);
+        return page ? (
+          <button key={r.url} className="btn btn-ghost" onClick={() => openPath("Projects/" + page[1]!.split("/").map(decodeURIComponent).join("/"))} title={r.context ?? undefined}>
+            {r.title}
+          </button>
+        ) : (
+          <a key={r.url} className="btn btn-ghost" href={r.url}>
+            {r.title}
+          </a>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Anything but a note, shown as itself. */
