@@ -22,7 +22,15 @@ pdfjs.GlobalWorkerOptions.workerSrc = worker;
 type Page = { id: string; base: number; style: string; width: number; height: number };
 type Stroke = { page: string; tool: string; color: number; width: number; points?: Uint8Array; outline?: Uint8Array[]; ink?: Uint8Array; transform?: number[] };
 type Picture = { page: string; rect: number[]; crop: number[]; blob: string; mime: string };
-type Tool = "pen" | "highlighter" | "eraser";
+/** [fading]: a pen whose writing fades 5 s after the last stroke (to point things out); never kept. */
+type Tool = "pen" | "highlighter" | "fading" | "eraser";
+
+/** The fading pen: how long after the last stroke its writing starts to fade, and how long fading takes. */
+const FADE_AFTER = 5000;
+const FADE = 600;
+
+/** A stroke of the fading pen: its outline, until it fades. */
+type Fading = { page: string; d: string; color: string };
 /** A blank page's look, as the core draws it (see blank_page). */
 type Style = "plain" | "lines" | "grid" | "dots";
 const STYLES: [Style, string][] = [["plain", "Plain"], ["lines", "Lines"], ["grid", "Grid"], ["dots", "Dots"]];
@@ -178,8 +186,34 @@ export default function Notebook({ path }: { path: string }) {
   }, [y, version]);
 
   const palette = tool === "highlighter" ? HIGHLIGHTERS : PENS;
+
+  // The fading pen's writing: shown until it fades, not the notebook's.
+  const [fading, setFading] = useState<Fading[]>([]);
+  const [fadingOut, setFadingOut] = useState(false);
+  const fadeTimers = useRef<number[]>([]);
+  /** Writing with the fading pen again: what's there stays (shown again if fading), the wait starts over. */
+  const keepFading = () => {
+    fadeTimers.current.forEach(clearTimeout);
+    fadeTimers.current = [];
+    setFadingOut(false);
+  };
+  const fadeLater = () => {
+    keepFading();
+    fadeTimers.current = [
+      window.setTimeout(() => setFadingOut(true), FADE_AFTER),
+      window.setTimeout(() => (setFading([]), setFadingOut(false)), FADE_AFTER + FADE),
+    ];
+  };
+  useEffect(() => () => fadeTimers.current.forEach(clearTimeout), []);
+
   const put = (page: string, points: number[]) => {
     if (!y || points.length < 3) return;
+    if (tool === "fading") {
+      const ink = rgba(PENS[color % PENS.length]!);
+      setFading((f) => [...f, { page, d: pathOf(new Float32Array(outlineOf(points, 0.6, true))), color: ink }]);
+      fadeLater();
+      return;
+    }
     const pen = tool === "pen";
     const width = pen ? 0.6 : 9;
     const argb = palette[color % palette.length]!;
@@ -236,7 +270,7 @@ export default function Notebook({ path }: { path: string }) {
     const p = place.data.page;
     if (p != null && pages[p]) requestAnimationFrame(() => sheets.current.get(pages[p]!.id)?.scrollIntoView({ block: "start" }));
     const t = place.data.tool;
-    if (t === "pen" || t === "highlighter" || t === "eraser") setTool(t);
+    if (t === "pen" || t === "highlighter" || t === "fading" || t === "eraser") setTool(t);
   }, [place.data, pages]);
   useEffect(() => {
     if (!placed.current) return;
@@ -274,9 +308,9 @@ export default function Notebook({ path }: { path: string }) {
           Add page
         </button>
         <span className={styles.divider} />
-        {(["pen", "highlighter", "eraser"] as Tool[]).map((t) => (
-          <button key={t} className={`btn btn-ghost ${tool === t ? styles.on : ""}`} onClick={() => setTool(t)}>
-            {t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : "Eraser"}
+        {(["pen", "highlighter", "fading", "eraser"] as Tool[]).map((t) => (
+          <button key={t} className={`btn btn-ghost ${tool === t ? styles.on : ""}`} onClick={() => setTool(t)} title={t === "fading" ? "Writing that fades 5 s after you stop (to point things out)" : undefined}>
+            {t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : t === "fading" ? "Fading pen" : "Eraser"}
           </button>
         ))}
         {tool !== "eraser" &&
@@ -292,7 +326,7 @@ export default function Notebook({ path }: { path: string }) {
               else sheets.current.delete(p.id);
             }}
           >
-            <PageView page={p} pdf={pdf} strokes={byPage.get(p.id) ?? []} pictures={picturesByPage.get(p.id) ?? []} tool={tool} onStroke={(pts) => put(p.id, pts)} onErase={(at, r) => erase(p.id, at, r)} />
+            <PageView page={p} pdf={pdf} strokes={byPage.get(p.id) ?? []} pictures={picturesByPage.get(p.id) ?? []} tool={tool} onStroke={(pts) => put(p.id, pts)} onErase={(at, r) => erase(p.id, at, r)} fading={fading.filter((f) => f.page === p.id)} fadingOut={fadingOut} onBegin={() => tool === "fading" && keepFading()} />
             <div className={styles.footer}>
               <button className={`btn btn-ghost ${styles.star}`} onClick={() => bookmark(p.id, !marked.has(p.id))} aria-pressed={marked.has(p.id)} title={marked.has(p.id) ? "Remove the bookmark" : "Bookmark this page"}>
                 {marked.has(p.id) ? "★" : "☆"}
@@ -333,6 +367,9 @@ function PageView({
   tool,
   onStroke,
   onErase,
+  fading,
+  fadingOut,
+  onBegin,
 }: {
   page: Page;
   pdf: pdfjs.PDFDocumentProxy | null;
@@ -342,6 +379,11 @@ function PageView({
   onStroke: (points: number[]) => void;
   /** The eraser went over [at]; what's within [r] of it goes. */
   onErase: (at: [number, number][], r: number) => void;
+  /** The fading pen's writing on this page, and whether it's fading now. */
+  fading: Fading[];
+  fadingOut: boolean;
+  /** A stroke starts. */
+  onBegin: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -407,6 +449,7 @@ function PageView({
           const [x, y, p] = point(e);
           rubbed.current = null;
           if (tool === "eraser") return rub(x, y);
+          onBegin();
           drawing.current = [x, y, p];
           setWet([...drawing.current]);
         }}
@@ -447,7 +490,12 @@ function PageView({
             style={s.tool === "highlighter" ? { mixBlendMode: "multiply" } : undefined}
           />
         ))}
-        {wet.length >= 3 && <path d={pathOf(new Float32Array(outlineOf(wet, tool === "pen" ? 0.6 : 9, tool === "pen")))} fill="rgba(80, 80, 90, 0.6)" />}
+        <g style={{ opacity: fadingOut ? 0 : 1, transition: fadingOut ? `opacity ${FADE}ms` : "none" }}>
+          {fading.map((f, i) => (
+            <path key={i} d={f.d} fill={f.color} />
+          ))}
+        </g>
+        {wet.length >= 3 && <path d={pathOf(new Float32Array(outlineOf(wet, tool === "highlighter" ? 9 : 0.6, tool !== "highlighter")))} fill="rgba(80, 80, 90, 0.6)" />}
       </svg>
     </div>
   );
