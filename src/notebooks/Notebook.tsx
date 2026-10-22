@@ -29,8 +29,9 @@ type Tool = "pen" | "highlighter" | "fading" | "eraser";
 const FADE_AFTER = 5000;
 const FADE = 600;
 
-/** A stroke of the fading pen: its outline, until it fades. */
-type Fading = { page: string; d: string; color: string };
+/** A stroke of the fading pen, until it fades: drawn as a laser pointer's, a red line ([d]) with a white core. */
+type Fading = { page: string; d: string; core: string };
+const LASER_RED = "#e53935";
 /** A blank page's look, as the core draws it (see blank_page). */
 type Style = "plain" | "lines" | "grid" | "dots";
 const STYLES: [Style, string][] = [["plain", "Plain"], ["lines", "Lines"], ["grid", "Grid"], ["dots", "Dots"]];
@@ -209,8 +210,7 @@ export default function Notebook({ path }: { path: string }) {
   const put = (page: string, points: number[]) => {
     if (!y || points.length < 3) return;
     if (tool === "fading") {
-      const ink = rgba(PENS[color % PENS.length]!);
-      setFading((f) => [...f, { page, d: pathOf(new Float32Array(outlineOf(points, 0.6, true))), color: ink }]);
+      setFading((f) => [...f, { page, d: pathOf(new Float32Array(outlineOf(points, 3.2, false))), core: pathOf(new Float32Array(outlineOf(points, 1.1, false))) }]);
       fadeLater();
       return;
     }
@@ -313,7 +313,7 @@ export default function Notebook({ path }: { path: string }) {
             {t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : t === "fading" ? "Fading pen" : "Eraser"}
           </button>
         ))}
-        {tool !== "eraser" &&
+        {tool !== "eraser" && tool !== "fading" &&
           palette.map((c, i) => <button key={c} className={`${styles.swatch} ${color === i ? styles.on : ""}`} style={{ background: rgba(c | 0xff000000) }} onClick={() => setColor(i)} aria-label={`Colour ${i + 1}`} />)}
       </div>
       <div ref={scroller} className={styles.pages} onScroll={onScroll}>
@@ -492,10 +492,18 @@ function PageView({
         ))}
         <g style={{ opacity: fadingOut ? 0 : 1, transition: fadingOut ? `opacity ${FADE}ms` : "none" }}>
           {fading.map((f, i) => (
-            <path key={i} d={f.d} fill={f.color} />
+            <g key={i}>
+              <path d={f.d} fill={LASER_RED} />
+              <path d={f.core} fill="#fff" />
+            </g>
           ))}
         </g>
-        {wet.length >= 3 && <path d={pathOf(new Float32Array(outlineOf(wet, tool === "highlighter" ? 9 : 0.6, tool !== "highlighter")))} fill="rgba(80, 80, 90, 0.6)" />}
+        {wet.length >= 3 &&
+          (tool === "fading" ? (
+            <path d={pathOf(new Float32Array(outlineOf(wet, 3.2, false)))} fill={LASER_RED} />
+          ) : (
+            <path d={pathOf(new Float32Array(outlineOf(wet, tool === "highlighter" ? 9 : 0.6, tool !== "highlighter")))} fill="rgba(80, 80, 90, 0.6)" />
+          ))}
       </svg>
     </div>
   );
