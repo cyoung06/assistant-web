@@ -239,7 +239,7 @@ function Shell() {
           {mailId ? (
             <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
           ) : onToday ? (
-            <TodayPage go={go} />
+            <TodayPage go={go} quickNote={() => quickNote()} />
           ) : onTriage ? (
             <TriagePage />
           ) : onTrash ? (

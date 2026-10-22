@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { filesRoute } from "../files/api";
 import { formatDay, shortTime, toTimeString } from "../lib/dates";
 import { useTasksUi } from "../tasks/context";
@@ -25,9 +26,19 @@ function nextWhen(e: Event, now: Date) {
 }
 
 /** One screen of the day: the next class (room, newest files), today's events, what's due soon, Triage. */
-export function TodayPage({ go }: { go: (route: string) => void }) {
+/** Sends a photo (from the camera, on a phone) for the class on now into its project's folder; where it went. */
+export async function sendClassPhoto(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file, file.name || "photo.jpg");
+  const res = await fetch("/api/v1/drive/photo", { method: "POST", body });
+  if (!res.ok) throw new Error(`Couldn't save the photo (${res.status})`);
+  return ((await res.json()) as { paths: string[] }).paths[0]!;
+}
+
+export function TodayPage({ go, quickNote }: { go: (route: string) => void; quickNote: () => void }) {
   const today = useToday();
-  const { openTask } = useTasksUi();
+  const { openTask, notify } = useTasksUi();
+  const photo = useRef<HTMLInputElement>(null);
   const t = today.data;
   const now = new Date();
 
@@ -36,6 +47,25 @@ export function TodayPage({ go }: { go: (route: string) => void }) {
       <header className={styles.head}>
         <h1>Today</h1>
         {t && <span className={styles.date}>{formatDay(t.date)}</span>}
+        <span className={styles.spacer} />
+        <button className="btn" onClick={quickNote} title="A note for the class on now (Q)">
+          Quick note
+        </button>
+        <button className="btn" onClick={() => photo.current?.click()} title="A photo (a whiteboard, a handout) into the class's folder">
+          Class photo
+        </button>
+        <input
+          ref={photo}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) sendClassPhoto(file).then((p) => notify(`Saved to ${p.split("/")[1] ?? "the drive"}`), (err: Error) => notify(err.message));
+          }}
+        />
       </header>
       {today.isPending && <p className={styles.hint}>Loading…</p>}
       {today.error && <p className={styles.error}>{today.error.message}</p>}

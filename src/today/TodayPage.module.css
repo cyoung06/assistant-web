@@ -18,6 +18,9 @@
 .date {
   color: var(--text-2);
 }
+.spacer {
+  flex: 1;
+}
 
 .grid {
   display: grid;
