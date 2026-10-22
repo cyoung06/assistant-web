@@ -22,11 +22,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = worker;
 type Page = { id: string; base: number; style: string; width: number; height: number };
 type Stroke = { page: string; tool: string; color: number; width: number; points?: Uint8Array; outline?: Uint8Array[]; ink?: Uint8Array; transform?: number[] };
 type Picture = { page: string; rect: number[]; crop: number[]; blob: string; mime: string };
-/** [fading]: a pen whose writing fades 5 s after the last stroke (to point things out); never kept. */
+/** [fading]: a pen whose writing fades 4 s after the last stroke (to point things out); never kept. */
 type Tool = "pen" | "highlighter" | "fading" | "eraser";
 
 /** The fading pen: how long after the last stroke its writing starts to fade, and how long fading takes. */
-const FADE_AFTER = 5000;
+const FADE_AFTER = 4000;
 const FADE = 600;
 
 /** A stroke of the fading pen, until it fades: drawn as a laser pointer's, a red line ([d]) with a white core. */
@@ -198,14 +198,20 @@ export default function Notebook({ path }: { path: string }) {
     fadeTimers.current = [];
     setFadingOut(false);
   };
-  const fadeLater = () => {
+  const fadeLater = (after = FADE_AFTER) => {
     keepFading();
     fadeTimers.current = [
-      window.setTimeout(() => setFadingOut(true), FADE_AFTER),
-      window.setTimeout(() => (setFading([]), setFadingOut(false)), FADE_AFTER + FADE),
+      window.setTimeout(() => setFadingOut(true), after),
+      window.setTimeout(() => (setFading([]), setFadingOut(false)), after + FADE),
     ];
   };
   useEffect(() => () => fadeTimers.current.forEach(clearTimeout), []);
+  // Another tool picked: the fading pen's writing goes now.
+  useEffect(() => {
+    if (tool !== "fading" && fading.length && !fadingOut) fadeLater(0);
+    // Only on picking a tool.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool]);
 
   const put = (page: string, points: number[]) => {
     if (!y || points.length < 3) return;
@@ -309,7 +315,7 @@ export default function Notebook({ path }: { path: string }) {
         </button>
         <span className={styles.divider} />
         {(["pen", "highlighter", "fading", "eraser"] as Tool[]).map((t) => (
-          <button key={t} className={`btn btn-ghost ${tool === t ? styles.on : ""}`} onClick={() => setTool(t)} title={t === "fading" ? "Writing that fades 5 s after you stop (to point things out)" : undefined}>
+          <button key={t} className={`btn btn-ghost ${tool === t ? styles.on : ""}`} onClick={() => setTool(t)} title={t === "fading" ? "Writing that fades 4 s after you stop (to point things out)" : undefined}>
             {t === "pen" ? "Pen" : t === "highlighter" ? "Highlighter" : t === "fading" ? "Fading pen" : "Eraser"}
           </button>
         ))}
