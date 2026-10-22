@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { Marked } from "marked";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { fileUrl, kind, parentOf, readOnly, size, type DriveEntry } from "./api";
+import { fileUrl, kind, parentOf, readOnly, size, useFileState, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
 
 /** The note editor (CodeMirror and KaTeX), loaded when a note is first opened. */
@@ -95,7 +95,7 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
             <Notebook key={path} path={path} />
           </Suspense>
         ) : k === "pdf" ? (
-          <iframe key={path} className={styles.frame} src={url} title={name} />
+          <PdfFrame path={path} url={url} name={name} />
         ) : k === "image" ? (
           <div className={`${styles.imageBox} ${actual ? styles.actual : ""}`} onClick={() => setActual((a) => !a)} title={actual ? "Fit to the pane" : "Actual size"}>
             <img key={path} className={styles.image} src={url} alt={name} />
@@ -143,4 +143,12 @@ function Code({ text }: { text: string }) {
       ))}
     </div>
   );
+}
+
+/** A PDF in the browser's own viewer, opened at the page it was left at (on any device). */
+function PdfFrame({ path, url, name }: { path: string; url: string; name: string }) {
+  const place = useFileState(path);
+  if (place.isPending) return null;
+  const page = place.data?.page;
+  return <iframe key={path} className={styles.frame} src={page != null ? `${url}#page=${page + 1}` : url} title={name} />;
 }

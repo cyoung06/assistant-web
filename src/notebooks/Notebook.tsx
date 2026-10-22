@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
+import { keepPlace, useFileState } from "../files/api";
 import styles from "./Notebook.module.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
@@ -215,6 +216,23 @@ export default function Notebook({ path }: { path: string }) {
     });
     setCurrent(at);
   };
+
+  // Where it was left (on any device): opened there, with the tool in hand; kept as it changes.
+  const place = useFileState(path);
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || !place.data || pages.length === 0) return;
+    placed.current = true;
+    const p = place.data.page;
+    if (p != null && pages[p]) requestAnimationFrame(() => sheets.current.get(pages[p]!.id)?.scrollIntoView({ block: "start" }));
+    const t = place.data.tool;
+    if (t === "pen" || t === "highlighter" || t === "eraser") setTool(t);
+  }, [place.data, pages]);
+  useEffect(() => {
+    if (!placed.current) return;
+    const t = setTimeout(() => keepPlace(path, { page: current, tool }), 1500);
+    return () => clearTimeout(t);
+  }, [path, current, tool]);
 
   const erase = (page: string, at: [number, number][], r: number) => {
     if (!y) return;

@@ -236,3 +236,12 @@ export function useFileStateMutations() {
 /** A path known only by itself (a starred or recent one) as an entry. */
 export const entryOf = (path: string): DriveEntry =>
   path.endsWith("/") ? folderEntry(path) : { path, name: path.split("/").pop() ?? path, folder: false, size: 0 };
+
+/** What's kept about [path] (where a PDF was left: page from 0, zoom, tool). */
+export function useFileState(path: string, enabled = true) {
+  return useQuery({ queryKey: ["drive", "state", path], enabled, staleTime: 0, queryFn: async () => unwrap(await api.GET("/api/v1/drive/state", { params: { query: { path } } })) });
+}
+
+/** Keeps where [path] was left (page, tool), quietly. */
+export const keepPlace = (path: string, place: { page?: number; tool?: string }) =>
+  void api.PATCH("/api/v1/drive/state", { params: { query: { path } }, body: place });
