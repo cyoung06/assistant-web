@@ -6,7 +6,9 @@ import { appRoute, plmsWebUrl } from "./refs/kinds";
 import { FilesPage } from "./files/FilesPage";
 import { TrashPage } from "./files/TrashPage";
 import { filesRoute, pathOfRoute } from "./files/api";
+import { useNarrow } from "./lib/useNarrow";
 import { MailReader } from "./refs/MailReader";
+import { TodayPage } from "./today/TodayPage";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
 import { FOCUS_SEARCH, TasksApp } from "./tasks/TasksApp";
@@ -121,7 +123,10 @@ function Shell() {
     return () => document.removeEventListener("click", onClick);
   }, [navigate]);
 
+  const narrow = useNarrow();
   const mailId = hash.startsWith("mail/") ? decodeURIComponent(hash.slice(5)) : null;
+  // The day at a glance; where a phone starts.
+  const onToday = hash === "today" || (hash === "" && narrow);
   const onTriage = hash === "triage";
   const onCalendar = hash.startsWith("calendar");
   const onFiles = hash === "files" || hash.startsWith("files/");
@@ -136,7 +141,7 @@ function Shell() {
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
   const search = () => {
-    if (onCalendar || onTriage || onFiles || onTrash || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
+    if (onToday || onCalendar || onTriage || onFiles || onTrash || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };
@@ -149,7 +154,7 @@ function Shell() {
       const key = e.key.toLowerCase();
       if (Date.now() - pendingG < 1200) {
         pendingG = 0;
-        const target = { t: "tasks/active", p: "tasks/projects", c: "calendar", i: "triage", f: "files" }[key];
+        const target = { d: "today", t: "tasks/active", p: "tasks/projects", c: "calendar", i: "triage", f: "files" }[key];
         if (target) (e.preventDefault(), go(target));
         return;
       }
@@ -184,11 +189,13 @@ function Shell() {
           <button className="btn btn-ghost" aria-label="Open navigation" onClick={() => setDrawer(true)}>
             ☰
           </button>
-          <span className={styles.mobileTitle}>{onCalendar ? "Calendar" : onTriage ? "Triage" : onFiles ? "Files" : onTrash ? "Trash" : "Tasks"}</span>
+          <span className={styles.mobileTitle}>{onToday ? "Today" : onCalendar ? "Calendar" : onTriage ? "Triage" : onFiles ? "Files" : onTrash ? "Trash" : "Tasks"}</span>
         </header>
         <main className={styles.main}>
           {mailId ? (
             <MailReader messageId={mailId} back={() => (history.length > 1 ? history.back() : go("tasks/active"))} />
+          ) : onToday ? (
+            <TodayPage go={go} />
           ) : onTriage ? (
             <TriagePage />
           ) : onTrash ? (

@@ -1044,6 +1044,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/triage": {
         parameters: {
             query?: never;
@@ -1214,6 +1230,7 @@ export interface components {
             end?: string | null;
             /** Format: date */
             endDate?: string | null;
+            location?: string | null;
             notes?: string;
             /** Format: uuid */
             projectId?: string | null;
@@ -1312,6 +1329,7 @@ export interface components {
             endDate?: string | null;
             fixed: boolean;
             id: string;
+            location?: string | null;
             /** Format: uuid */
             projectId?: string | null;
             repeats: boolean;
@@ -1332,6 +1350,7 @@ export interface components {
             endDate?: string | null;
             fixed: boolean;
             id: string;
+            location?: string | null;
             notes: string;
             /** Format: uuid */
             projectId?: string | null;
@@ -1487,6 +1506,12 @@ export interface components {
             id: string;
             name: string;
             token: string;
+        };
+        NextClass: {
+            event: components["schemas"]["EventOccurrence"];
+            files: components["schemas"]["DriveEntry"][];
+            folder?: string | null;
+            projectName?: string | null;
         };
         ParsedMail: {
             from: string;
@@ -1680,6 +1705,15 @@ export interface components {
             url?: string | null;
             /** Format: int64 */
             version: number;
+        };
+        Today: {
+            /** Format: date */
+            date: string;
+            due: components["schemas"]["TaskResponse"][];
+            events: components["schemas"]["EventOccurrence"][];
+            next?: components["schemas"]["NextClass"] | null;
+            /** Format: int32 */
+            triage: number;
         };
         TokenInfo: {
             /** Format: date-time */
@@ -3719,6 +3753,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskResponse"];
+                };
+            };
+        };
+    };
+    today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Today"];
                 };
             };
         };

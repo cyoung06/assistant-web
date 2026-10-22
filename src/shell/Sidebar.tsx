@@ -52,6 +52,7 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
       </div>
 
       <div className={styles.scroll}>
+        <Link icon={<TodayIcon />} label="Today" active={hash === "today"} onClick={() => go("today")} />
         <Link icon={<TriageIcon />} label="Triage" count={triage || undefined} active={hash === "triage"} onClick={() => go("triage")} />
 
         {/* Section links: the view underneath carries the highlight. */}
@@ -129,6 +130,7 @@ const svg = (children: ReactNode) => (
     {children}
   </svg>
 );
+const TodayIcon = () => svg(<><circle cx="8" cy="8" r="2.8" /><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" /></>);
 const TasksIcon = () => svg(<><circle cx="8" cy="8" r="6" /><path d="M5.5 8.2 7.2 9.8 10.6 6.3" /></>);
 const ProjectsIcon = () => svg(<><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M2 6h12M6 6v7.5" /></>);
 const TriageIcon = () => svg(<><path d="M2 9.5h3l1.2 2h3.6l1.2-2h3" /><path d="M2 9.5 3.8 3.5h8.4L14 9.5v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" /></>);

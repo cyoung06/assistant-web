@@ -27,6 +27,8 @@ export type EventTarget =
 interface Form {
   title: string;
   notes: string;
+  /** Where it is (a lecture's room). */
+  location: string;
   allDay: boolean;
   date: string;
   endDate: string;
@@ -50,7 +52,7 @@ function formFor(target: EventTarget, e: CalendarEvent | undefined): Form {
     const date = toDateString(target.start);
     const lastDay = target.allDay ? addDays(toDateString(target.end), -1) : date;
     return {
-      title: "", notes: "", allDay: target.allDay, date, endDate: lastDay,
+      title: "", notes: "", location: "", allDay: target.allDay, date, endDate: lastDay,
       startTime: toTimeString(target.start), endTime: toTimeString(target.end), repeats: false, projectId: "", repeat: blankRepeat(date),
     };
   }
@@ -60,6 +62,7 @@ function formFor(target: EventTarget, e: CalendarEvent | undefined): Form {
   return {
     title: e?.title ?? "",
     notes: e?.notes ?? "",
+    location: e?.location ?? "",
     allDay: !!e?.startDate,
     date,
     endDate: e?.endDate ?? date,
@@ -106,7 +109,7 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
     const repeat: Repeat | null = f.repeats
       ? { freq: f.repeat.freq, interval: f.repeat.interval, weekdays: f.repeat.freq === "weekly" ? f.repeat.weekdays : [], until: f.repeat.until || null, skipped: f.repeat.skipped }
       : null;
-    return { title: f.title.trim(), notes: f.notes, ...time, projectId: f.projectId || null, ...(foreignRule ? {} : { repeat }) };
+    return { title: f.title.trim(), notes: f.notes, location: f.location.trim() || null, ...time, projectId: f.projectId || null, ...(foreignRule ? {} : { repeat }) };
   };
 
   const save = async () => {
@@ -253,6 +256,11 @@ export function EventDialog({ target, onClose }: { target: EventTarget; onClose:
                 </>
               )}
 
+              {readOnly ? (
+                form.location && <p className={styles.note}>{form.location}</p>
+              ) : (
+                <input id="event-location" className="input" placeholder="Room or place" value={form.location} onChange={(ev) => set({ location: ev.target.value })} />
+              )}
               {readOnly ? (
                 form.notes && <Markdown text={form.notes} />
               ) : (

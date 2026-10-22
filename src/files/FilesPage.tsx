@@ -21,6 +21,7 @@ import {
 import { Ask, ContextMenu, type MenuAction } from "./ContextMenu";
 import { Explorer, ICON, type Ops } from "./Explorer";
 import { FileViewer } from "./FileViewer";
+import { useNarrow } from "../lib/useNarrow";
 import { ExportDialog } from "./ExportDialog";
 import { FolderView } from "./FolderView";
 import { freshNotes } from "../notes/fresh";
@@ -41,18 +42,6 @@ const into = (folder: string, e: { name: string; folder: boolean }) => folder + 
 const changeable = (e: DriveEntry) => !isFixed(e.path) && !readOnly(e.path);
 /** An entry known only by its path (a file opened from a link, say). */
 const fileEntry = (path: string): DriveEntry => ({ path, name: path.split("/").pop() ?? path, folder: false, size: 0 });
-
-function useNarrow() {
-  const query = "(max-width: 640px)";
-  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const m = window.matchMedia(query);
-    const on = () => setNarrow(m.matches);
-    m.addEventListener("change", on);
-    return () => m.removeEventListener("change", on);
-  }, []);
-  return narrow;
-}
 
 const stored = (key: string, fallback: string) => {
   try {
