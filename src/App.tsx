@@ -5,7 +5,9 @@ import { Sidebar } from "./shell/Sidebar";
 import { appRoute, plmsWebUrl } from "./refs/kinds";
 import { FilesPage } from "./files/FilesPage";
 import { TrashPage } from "./files/TrashPage";
-import { filesRoute, pathOfRoute } from "./files/api";
+import { api, unwrap } from "./api/client";
+import { filesRoute, pathOfRoute, writeOnOpen } from "./files/api";
+import { quickNotes } from "./notes/fresh";
 import { useNarrow } from "./lib/useNarrow";
 import { MailReader } from "./refs/MailReader";
 import { TodayPage } from "./today/TodayPage";
@@ -81,7 +83,7 @@ function Shell() {
   const [drawer, setDrawer] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { openCreate, openTask } = useTasksUi();
+  const { openCreate, openTask, notify } = useTasksUi();
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   // Links to things (references): /task/<id> opens the task over the task list, /event/<uid> opens
@@ -140,6 +142,16 @@ function Shell() {
     setDrawer(false);
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
+  /** A new note (or notebook page) for the class on now, opened to write in. */
+  const quickNote = (notebook = false) =>
+    void api
+      .POST("/api/v1/quick-note", { params: { query: { kind: notebook ? "notebook" : "note" } } })
+      .then((r) => {
+        const { path } = unwrap(r);
+        (notebook ? writeOnOpen : quickNotes).add(path);
+        go(filesRoute(path.replace(/^Projects\//, "")));
+      })
+      .catch((e: Error) => notify(`Couldn't make a note: ${e.message}`));
   const search = () => {
     if (onToday || onCalendar || onTriage || onFiles || onTrash || tasksRoute === "projects" || tasksRoute.startsWith("initiative")) go("tasks/all");
     setDrawer(false);
@@ -160,6 +172,7 @@ function Shell() {
       }
       if (key === "g") pendingG = Date.now();
       else if (key === "c") (e.preventDefault(), newTask());
+      else if (key === "q") (e.preventDefault(), quickNote(e.shiftKey));
       else if (e.key === "?") setShortcutsOpen((o) => !o);
       else if (e.key === "Escape") setShortcutsOpen(false);
     };
@@ -178,6 +191,7 @@ function Shell() {
           hidden={hidden}
           onHidden={setHidden}
           onNewTask={newTask}
+          onQuickNote={() => quickNote()}
           onSearch={search}
           onSources={() => (setSourcesOpen(true), setDrawer(false))}
           onShortcuts={() => setShortcutsOpen((o) => !o)}

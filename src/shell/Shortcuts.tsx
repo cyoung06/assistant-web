@@ -2,7 +2,8 @@ import styles from "./Shortcuts.module.css";
 
 const KEYS: [string, string][] = [
   ["C", "New task"],
-  ["G then T / P / C / I", "Go to tasks / projects / calendar / triage"],
+  ["Q / ⇧Q", "Quick note / notebook page, for the class on now"],
+  ["G then D / T / P / C / I / F", "Go to today / tasks / projects / calendar / triage / files"],
   ["J / K", "Next / previous task"],
   ["Enter", "Open task"],
   ["X", "Mark done (again: reopen)"],

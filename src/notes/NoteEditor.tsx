@@ -15,7 +15,7 @@ import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
 import { loadCore, type Core, type Edit, type SlashItem } from "./core";
-import { freshNotes } from "./fresh";
+import { freshNotes, quickNotes } from "./fresh";
 import { keepEpoch, openKept } from "../sync/kept";
 import { darkChanged, livePreview } from "./livePreview";
 import styles from "./NoteEditor.module.css";
@@ -255,7 +255,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
     };
 
     /** The editor, on [text] (and, edited live, bound to [shared]). */
-    const show = (c: Core, text: string, shared: Extension, fresh: boolean) => {
+    const show = (c: Core, text: string, shared: Extension, fresh: boolean, quick = false) => {
       if (!alive || !host.current) return;
       core = c;
       view = new EditorView({
@@ -313,7 +313,11 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
       // For checking it in a browser while developing.
       if (import.meta.env.DEV) (window as unknown as { __noteView?: EditorView }).__noteView = view;
       setReady(true);
-      if (fresh) {
+      if (quick) {
+        setEditing(true);
+        view.dispatch({ selection: EditorSelection.cursor(view.state.doc.length) });
+        view.focus();
+      } else if (fresh) {
         setEditing(true);
         const first = view.state.doc.line(1);
         const title = /^#\s+/.exec(first.text);
@@ -366,7 +370,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
           p.off("sync", synced);
           void loadCore()
             .then((c) => {
-              show(c, ytext.toString(), [yCollab(ytext, p.awareness, { undoManager: undo }), keymap.of(yUndoManagerKeymap)], freshNotes.delete(path));
+              show(c, ytext.toString(), [yCollab(ytext, p.awareness, { undoManager: undo }), keymap.of(yUndoManagerKeymap)], freshNotes.delete(path), quickNotes.delete(path));
               set(p.wsconnected ? "live" : "offline");
             })
             .catch((e: Error) => (setError(e.message), set("error")));

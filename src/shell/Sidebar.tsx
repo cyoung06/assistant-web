@@ -17,13 +17,14 @@ interface Props {
   hidden: string[];
   onHidden: (hidden: string[]) => void;
   onNewTask: () => void;
+  onQuickNote: () => void;
   onSearch: () => void;
   onSources: () => void;
   onShortcuts: () => void;
 }
 
 /** Linear-style navigation: task views, projects, calendar (with its toggles), and the app's tools. */
-export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onNewTask, onSearch, onSources, onShortcuts }: Props) {
+export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onNewTask, onQuickNote, onSearch, onSources, onShortcuts }: Props) {
   const projects = useProjects().data ?? [];
   const initiatives = useInitiatives().data ?? [];
   const tasks = useTasks().data ?? [];
@@ -45,6 +46,9 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
         <span className={styles.brand}>Assistant</span>
         <button className={styles.tool} title="Search" aria-label="Search" onClick={onSearch}>
           <SearchIcon />
+        </button>
+        <button className={styles.tool} title="Quick note for the class on now (Q; ⇧Q: a notebook page)" aria-label="Quick note" onClick={onQuickNote}>
+          <NoteIcon />
         </button>
         <button className={styles.tool} title="New task (C)" aria-label="New task" onClick={onNewTask}>
           <PenIcon />
@@ -139,5 +143,6 @@ const TrashIcon = () => svg(<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.
 const FilesIcon = () => svg(<path d="M2 4.5a1 1 0 0 1 1-1h3.2l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />);
 const CalendarIcon = () => svg(<><rect x="2" y="3" width="12" height="11" rx="2" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /></>);
 const SearchIcon = () => svg(<><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3.5 3.5" /></>);
+const NoteIcon = () => svg(<><path d="M4 2h5.5L12 4.5V14H4z" /><path d="M9.5 2v2.5H12M6 8h4M6 10.5h4" /></>);
 const PenIcon = () => svg(<><path d="M10.5 2.5 13.5 5.5 6 13H3v-3z" /><path d="m9 4 3 3" /></>);
 const SourcesIcon = () => svg(<><path d="M3 8a5 5 0 0 1 8.5-3.5L13 6M13 8a5 5 0 0 1-8.5 3.5L3 10" /><path d="M13 2.5V6H9.5M3 13.5V10h3.5" /></>);
