@@ -16,6 +16,7 @@ import * as Y from "yjs";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
 import { loadCore, type Core, type Edit, type SlashItem } from "./core";
 import { freshNotes } from "./fresh";
+import { keepEpoch, openKept } from "../sync/kept";
 import { darkChanged, livePreview } from "./livePreview";
 import styles from "./NoteEditor.module.css";
 import type { NoteStatus as Status, NoteStore } from "./store";
@@ -336,42 +337,45 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
       const ytext = ydoc.getText("note");
       const undo = new Y.UndoManager(ytext);
       // As this browser last had it (shown at once, offline too); what's changed since comes from the server.
-      local = new IndexeddbPersistence(`assistant:${path}`, ydoc);
-      const l = local;
-      provider = new WebsocketProvider(syncUrl(), "sync", ydoc, { params: { doc: path } });
-      const p = provider;
-      // Who this is, beside its cursor on the other devices.
-      p.awareness.setLocalStateField("user", { name: "Web", color: "#7d9cff", colorLight: "#7d9cff33" });
-      p.on("status", ({ status: s }: { status: string }) => {
-        if (view) set(s === "connected" ? "live" : s === "connecting" ? "connecting" : "offline");
-      });
-      p.on("connection-close", (e: CloseEvent | null) => {
-        // Refused (not a note that can be edited live, or gone): no point trying again.
-        if (e?.code === 1008) {
-          p.disconnect();
-          // Moved or deleted: what's kept here is no one's now.
-          void l.clearData();
-          setError(e.reason || "This note can't be opened");
-          set("error");
-        }
-      });
-      // The editor once the note is here: kept in this browser, or come from the server (an empty one
-      // until then would look like an empty note).
-      let showing = false;
-      const synced = (isSynced: boolean) => {
-        if (!isSynced || view || showing) return;
-        showing = true;
-        p.off("sync", synced);
-        void loadCore()
-          .then((c) => {
-            show(c, ytext.toString(), [yCollab(ytext, p.awareness, { undoManager: undo }), keymap.of(yUndoManagerKeymap)], freshNotes.delete(path));
-            set(p.wsconnected ? "live" : "offline");
-          })
-          .catch((e: Error) => (setError(e.message), set("error")));
-      };
-      p.on("sync", synced);
-      void l.whenSynced.then(() => {
-        if (ytext.length > 0) synced(true);
+      void openKept(path, ydoc).then((l) => {
+        if (!alive) return void l.destroy();
+        local = l;
+        provider = new WebsocketProvider(syncUrl(), "sync", ydoc, { params: { doc: path } });
+        const p = provider;
+        // Who this is, beside its cursor on the other devices.
+        p.awareness.setLocalStateField("user", { name: "Web", color: "#7d9cff", colorLight: "#7d9cff33" });
+        p.on("status", ({ status: s }: { status: string }) => {
+          if (view) set(s === "connected" ? "live" : s === "connecting" ? "connecting" : "offline");
+        });
+        p.on("connection-close", (e: CloseEvent | null) => {
+          // Refused (not a note that can be edited live, or gone): no point trying again.
+          if (e?.code === 1008) {
+            p.disconnect();
+            // Moved or deleted: what's kept here is no one's now.
+            void l.clearData();
+            setError(e.reason || "This note can't be opened");
+            set("error");
+          }
+        });
+        // The editor once the note is here: kept in this browser, or come from the server (an empty one
+        // until then would look like an empty note).
+        let showing = false;
+        const synced = (isSynced: boolean) => {
+          if (!isSynced || view || showing) return;
+          showing = true;
+          p.off("sync", synced);
+          void loadCore()
+            .then((c) => {
+              show(c, ytext.toString(), [yCollab(ytext, p.awareness, { undoManager: undo }), keymap.of(yUndoManagerKeymap)], freshNotes.delete(path));
+              set(p.wsconnected ? "live" : "offline");
+            })
+            .catch((e: Error) => (setError(e.message), set("error")));
+        };
+        p.on("sync", synced);
+        p.on("sync", (isSynced: boolean) => isSynced && void keepEpoch(path, l));
+        void l.whenSynced.then(() => {
+          if (ytext.length > 0) synced(true);
+        });
       });
     }
     const unwatchDark = watchDark((dark) => view?.dispatch({ effects: darkChanged.of(dark) }));

@@ -5,6 +5,7 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { keepPlace, useFileState } from "../files/api";
+import { keepEpoch, openKept } from "../sync/kept";
 import styles from "./Notebook.module.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
@@ -120,22 +121,31 @@ export default function Notebook({ path }: { path: string }) {
     yref.current = { doc, pages, strokes, images, bookmarks, meta };
     const bump = () => setVersion((v) => v + 1);
     doc.on("update", bump);
+    let alive = true;
     // As this browser last had it (shown at once, offline too); what's changed since comes from the server.
-    const local = new IndexeddbPersistence(`assistant:${path}`, doc);
-    const provider = new WebsocketProvider(syncUrl(), "sync", doc, { params: { doc: path } });
-    provider.awareness.setLocalStateField("user", { name: "Web" });
-    provider.on("status", ({ status: s }: { status: string }) => setStatus(s === "connected" ? "Live" : s === "connecting" ? "Connecting…" : "Offline (kept)"));
-    provider.on("connection-close", (e: CloseEvent | null) => {
-      if (e?.code === 1008) {
-        provider.disconnect();
-        // Moved or deleted: what's kept here is no one's now.
-        void local.clearData();
-        setStatus(e.reason || "This can't be opened");
-      }
+    let provider: WebsocketProvider | null = null;
+    let kept: IndexeddbPersistence | null = null;
+    void openKept(path, doc).then((local) => {
+      if (!alive) return void local.destroy();
+      kept = local;
+      const p = new WebsocketProvider(syncUrl(), "sync", doc, { params: { doc: path } });
+      provider = p;
+      p.awareness.setLocalStateField("user", { name: "Web" });
+      p.on("status", ({ status: s }: { status: string }) => setStatus(s === "connected" ? "Live" : s === "connecting" ? "Connecting…" : "Offline (kept)"));
+      p.on("sync", (isSynced: boolean) => isSynced && void keepEpoch(path, local));
+      p.on("connection-close", (e: CloseEvent | null) => {
+        if (e?.code === 1008) {
+          p.disconnect();
+          // Moved or deleted: what's kept here is no one's now.
+          void local.clearData();
+          setStatus(e.reason || "This can't be opened");
+        }
+      });
     });
     return () => {
-      provider.destroy();
-      void local.destroy();
+      alive = false;
+      provider?.destroy();
+      void kept?.destroy();
       doc.destroy();
       yref.current = null;
     };
