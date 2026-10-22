@@ -7,7 +7,7 @@ import { kindOf } from "../refs/kinds";
 import { upload, useSaveTriageProfile, useTriage, useTriageMutations, useTriageProfile, type Proposal, type TriageInput, type TriageItem } from "./api";
 import styles from "./TriagePage.module.css";
 
-const SOURCE: Record<string, string> = { share: "Shared", capture: "Captured", addin: "From Outlook", mail: "Mail" };
+const SOURCE: Record<string, string> = { share: "Shared", capture: "Captured", addin: "From Outlook", mail: "Mail", chatgpt: "From ChatGPT", plms: "PLMS" };
 
 const ago = (iso: string) => {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
