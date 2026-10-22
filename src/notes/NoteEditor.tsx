@@ -10,6 +10,7 @@ import { tags as t } from "@lezer/highlight";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
+import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import { fileUrl, parentOf, readOnly, size, type DriveEntry } from "../files/api";
@@ -310,6 +311,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
     };
 
     let provider: WebsocketProvider | null = null;
+    let local: IndexeddbPersistence | null = null;
     const ydoc = new Y.Doc();
     if (locked) {
       // Course files: read as they are, nothing to sync.
@@ -322,6 +324,9 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
     } else {
       const ytext = ydoc.getText("note");
       const undo = new Y.UndoManager(ytext);
+      // As this browser last had it (shown at once, offline too); what's changed since comes from the server.
+      local = new IndexeddbPersistence(`assistant:${path}`, ydoc);
+      const l = local;
       provider = new WebsocketProvider(syncUrl(), "sync", ydoc, { params: { doc: path } });
       const p = provider;
       // Who this is, beside its cursor on the other devices.
@@ -333,13 +338,18 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
         // Refused (not a note that can be edited live, or gone): no point trying again.
         if (e?.code === 1008) {
           p.disconnect();
+          // Moved or deleted: what's kept here is no one's now.
+          void l.clearData();
           setError(e.reason || "This note can't be opened");
           set("error");
         }
       });
-      // The editor once the note has come from the server (an empty one until then would look like an empty note).
+      // The editor once the note is here: kept in this browser, or come from the server (an empty one
+      // until then would look like an empty note).
+      let showing = false;
       const synced = (isSynced: boolean) => {
-        if (!isSynced || view) return;
+        if (!isSynced || view || showing) return;
+        showing = true;
         p.off("sync", synced);
         void loadCore()
           .then((c) => {
@@ -349,6 +359,9 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
           .catch((e: Error) => (setError(e.message), set("error")));
       };
       p.on("sync", synced);
+      void l.whenSynced.then(() => {
+        if (ytext.length > 0) synced(true);
+      });
     }
     const unwatchDark = watchDark((dark) => view?.dispatch({ effects: darkChanged.of(dark) }));
 
@@ -364,6 +377,7 @@ function Note({ path, store, locked, entry }: { path: string; store: NoteStore; 
       alive = false;
       unwatchDark();
       provider?.destroy();
+      void local?.destroy();
       ydoc.destroy();
       view?.destroy();
     };

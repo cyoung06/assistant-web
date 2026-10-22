@@ -1,6 +1,7 @@
 import * as pdfjs from "pdfjs-dist";
 import worker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import styles from "./Notebook.module.css";
@@ -118,17 +119,22 @@ export default function Notebook({ path }: { path: string }) {
     yref.current = { doc, pages, strokes, images, bookmarks, meta };
     const bump = () => setVersion((v) => v + 1);
     doc.on("update", bump);
+    // As this browser last had it (shown at once, offline too); what's changed since comes from the server.
+    const local = new IndexeddbPersistence(`assistant:${path}`, doc);
     const provider = new WebsocketProvider(syncUrl(), "sync", doc, { params: { doc: path } });
     provider.awareness.setLocalStateField("user", { name: "Web" });
     provider.on("status", ({ status: s }: { status: string }) => setStatus(s === "connected" ? "Live" : s === "connecting" ? "Connecting…" : "Offline (kept)"));
     provider.on("connection-close", (e: CloseEvent | null) => {
       if (e?.code === 1008) {
         provider.disconnect();
+        // Moved or deleted: what's kept here is no one's now.
+        void local.clearData();
         setStatus(e.reason || "This can't be opened");
       }
     });
     return () => {
       provider.destroy();
+      void local.destroy();
       doc.destroy();
       yref.current = null;
     };
