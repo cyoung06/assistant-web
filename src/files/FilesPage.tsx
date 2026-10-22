@@ -21,6 +21,7 @@ import {
 import { Ask, ContextMenu, type MenuAction } from "./ContextMenu";
 import { Explorer, ICON, type Ops } from "./Explorer";
 import { FileViewer } from "./FileViewer";
+import { ExportDialog } from "./ExportDialog";
 import { FolderView } from "./FolderView";
 import { freshNotes } from "../notes/fresh";
 import styles from "./FilesPage.module.css";
@@ -97,6 +98,8 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const [selected, setSelected] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuAction[] } | null>(null);
+  /** The export dialog: for this folder, starting with that file. */
+  const [exporting, setExporting] = useState<{ folder: string; first?: string } | null>(null);
   const [asking, setAsking] = useState<{ title: string; initial?: string; confirm: string; danger?: boolean; done: (v: string) => void } | null>(null);
   const [target, setTarget] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -242,6 +245,9 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     if (clip && canPut) items.push({ label: `Paste “${clip.name}”`, hint: "⌘V", run: () => paste(dest, clip) });
     if (e && canSiblings) items.push({ label: "Duplicate", run: () => actions.duplicate(e) });
     if (e) items.push({ label: starred.has(e.path) ? "Unstar" : "Star", run: () => fileState.star(e.path, !starred.has(e.path)) });
+    // One PDF to hand in, of this folder's (or the file's folder's) notebooks, PDFs and notes.
+    if (!e || e.folder || /\.(pdf|md|markdown)$/i.test(e.name))
+      items.push({ label: "Export as PDF…", run: () => setExporting({ folder: e?.folder ? e.path : dest, first: e && !e.folder ? e.path : undefined }) });
     if (e && canChange) items.push("-", { label: "Rename", hint: "F2", run: () => setRenaming(e.path) }, { label: "Move to Trash", hint: "⌫", danger: true, run: () => actions.remove(e) });
     if (canPut)
       items.push(
@@ -529,6 +535,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
         }}
       />
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {exporting && <ExportDialog folder={exporting.folder} first={exporting.first} onClose={() => setExporting(null)} onSaved={(p) => open(fileEntry(p), true)} />}
       {asking && (
         <Ask
           title={asking.title}
