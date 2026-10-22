@@ -1,5 +1,5 @@
 import { EditorState, StateEffect, StateField, type Range } from "@codemirror/state";
-import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
+import { Decoration, type DecorationSet, EditorView, showTooltip, type Tooltip, WidgetType } from "@codemirror/view";
 import { spansOf, styleOf, type Alignment, type Core, type Span } from "./core";
 
 /**
@@ -409,6 +409,56 @@ function build(state: EditorState): DecorationSet {
   return Decoration.set(out, true);
 }
 
+/**
+ * While the cursor is in math (shown as TeX then), the math as it's being written, typeset, just
+ * below it; or, while it doesn't parse, the TeX error saying why.
+ */
+function mathTip(state: EditorState): Tooltip | null {
+  const s = state.field(setup);
+  if (!s || state.facet(EditorState.readOnly) || !state.field(focused)) return null;
+  const head = state.selection.main.head;
+  for (const span of spansOf(s.core, state.doc.toString())) {
+    const e = span.element;
+    if (e.kind !== "math" || head < span.range.from || head > span.range.to) continue;
+    const to = Math.min(span.range.to, state.doc.length);
+    const { core } = s;
+    const isDark = state.field(dark);
+    return {
+      pos: to,
+      above: false,
+      create: () => {
+        const dom = document.createElement("div");
+        dom.className = "cm-md-mathTip";
+        if (!e.tex.trim()) {
+          dom.textContent = "Type TeX…";
+          dom.classList.add("cm-md-mathTipEmpty");
+          return { dom };
+        }
+        const style = styleOf(core, isDark);
+        try {
+          const d = core.renderMath(e.tex, e.display, style.fontSize, style.text);
+          dom.append(drawing(d.svg, "cm-md-math"));
+          d.free();
+        } catch (err) {
+          dom.classList.add("cm-md-mathTipError");
+          dom.textContent = (err as Error).message;
+        }
+        return { dom };
+      },
+    };
+  }
+  return null;
+}
+
+const mathPreview = StateField.define<Tooltip | null>({
+  create: mathTip,
+  update(tip, tr) {
+    if (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(focusChanged) || e.is(darkChanged))) return mathTip(tr.state);
+    return tip;
+  },
+  provide: (f) => showTooltip.from(f),
+});
+
 const preview = StateField.define<DecorationSet>({
   create: build,
   update(deco, tr) {
@@ -456,5 +506,6 @@ export const livePreview = (core: Core, folder: string, open: OpenLink, images: 
   focused,
   dark.init(() => isDark),
   preview,
+  mathPreview,
   linkClicks(),
 ];
