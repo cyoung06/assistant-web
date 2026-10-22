@@ -18,6 +18,28 @@
   color: var(--text-2);
   text-decoration: none;
 }
+.updated {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  font-size: var(--text-sm);
+}
+.updated span {
+  flex: 1;
+  min-width: 240px;
+}
+.updated :global(.btn) {
+  height: 28px;
+  font-size: var(--text-xs);
+}
+.error {
+  color: var(--danger);
+}
 .meta {
   padding: 0 4px;
   color: var(--text-3);

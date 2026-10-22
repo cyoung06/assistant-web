@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
 import { Marked } from "marked";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { fileUrl, kind, parentOf, readOnly, size, useFileState, type DriveEntry } from "./api";
+import { fileUrl, kind, parentOf, readOnly, size, useAnnotation, useAnnotationMutations, useFileState, writeOnOpen, type DriveEntry } from "./api";
 import styles from "./FileViewer.module.css";
 
 /** The note editor (CodeMirror and KaTeX), loaded when a note is first opened. */
@@ -41,18 +41,30 @@ export function FileViewer({ path, entry, openPath }: { path: string; entry?: Dr
         <NoteEditor path={path} entry={entry} openPath={openPath} />
       </Suspense>
     );
-  return <Viewer path={path} entry={entry} />;
+  return <Viewer path={path} entry={entry} openPath={openPath} />;
 }
 
 /** Anything but a note, shown as itself. */
-function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
+function Viewer({ path, entry, openPath }: { path: string; entry?: DriveEntry; openPath: (path: string) => void }) {
   const name = path.split("/").pop() ?? path;
   const k = kind({ name });
   const url = fileUrl(path);
   const [actual, setActual] = useState(false);
   const [source, setSource] = useState(false);
   /** A PDF written on (live, with every device on it), instead of the browser's viewer. */
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState(() => writeOnOpen.delete(path));
+  // A course PDF's copy to write on, or a copy's course file updated since.
+  const annotation = useAnnotation(path, k === "pdf");
+  const annotations = useAnnotationMutations();
+  const course = readOnly(path);
+  const updated = !course && annotation.data?.copy === path && annotation.data.sourceChanged;
+  const annotate = () =>
+    annotations.annotate.mutate(path, {
+      onSuccess: (a) => {
+        writeOnOpen.add(a.copy);
+        openPath(a.copy);
+      },
+    });
 
   const big = (entry?.size ?? 0) > TEXT_LIMIT;
   const text = useQuery({
@@ -77,6 +89,11 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
             {source ? "Rendered" : "Source"}
           </button>
         )}
+        {k === "pdf" && course && (
+          <button className="btn btn-primary" onClick={annotate} disabled={annotations.annotate.isPending} title="Write on a copy in the project's Notes (your writing can follow PLMS's updates to this file)">
+            {annotations.annotate.isPending ? "Copying…" : annotation.data ? "Open my notes" : "Annotate"}
+          </button>
+        )}
         {k === "pdf" && !readOnly(path) && (
           <button className={writing ? "btn btn-primary" : "btn"} onClick={() => setWriting((w) => !w)} title={writing ? "Back to the PDF viewer" : "Write on it with a pen, live with your other devices"}>
             {writing ? "Done" : "Write on it"}
@@ -89,6 +106,20 @@ function Viewer({ path, entry }: { path: string; entry?: DriveEntry }) {
           Download
         </a>
       </div>
+      {updated && (
+        <div className={styles.updated}>
+          <span>
+            <b>{annotation.data!.source.split("/").pop()}</b> was updated on PLMS. Carry your writing over to the new version? Each page goes to the new page with its text; pages taken out are kept at the end.
+          </span>
+          <button className="btn btn-primary" disabled={annotations.carry.isPending} onClick={() => annotations.carry.mutate(path)}>
+            {annotations.carry.isPending ? "Carrying over…" : "Carry over"}
+          </button>
+          <button className="btn btn-ghost" disabled={annotations.dismiss.isPending} onClick={() => annotations.dismiss.mutate(path)}>
+            Keep as it is
+          </button>
+          {annotations.carry.isError && <span className={styles.error}>{annotations.carry.error.message}</span>}
+        </div>
+      )}
       <div className={styles.content}>
         {k === "pdf" && writing ? (
           <Suspense fallback={<p className={styles.note}>Opening…</p>}>

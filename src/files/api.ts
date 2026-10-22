@@ -206,6 +206,29 @@ export function useTrashMutations() {
 
 export type FileState = components["schemas"]["FileState"];
 
+/** What [path] is part of: a copy of a course file and that file (updated since?), or a course file and its copy. Null: neither. */
+export function useAnnotation(path: string, enabled = true) {
+  return useQuery({
+    queryKey: ["drive", "annotation", path],
+    enabled,
+    queryFn: async () => unwrap(await api.GET("/api/v1/drive/annotation", { params: { query: { path } } })) ?? null,
+  });
+}
+
+/** Making a course PDF's copy to write on, and carrying writing over to its course file's new version (or not). */
+export function useAnnotationMutations() {
+  const qc = useQueryClient();
+  const done = () => void qc.invalidateQueries({ queryKey: ["drive", "annotation"] });
+  return {
+    annotate: useMutation({ mutationFn: async (path: string) => unwrap(await api.POST("/api/v1/drive/annotate", { params: { query: { path } } })), onSettled: done }),
+    carry: useMutation({ mutationFn: async (path: string) => unwrap(await api.POST("/api/v1/drive/annotation/carry", { params: { query: { path } } })), onSettled: done }),
+    dismiss: useMutation({ mutationFn: async (path: string) => unwrap(await api.POST("/api/v1/drive/annotation/dismiss", { params: { query: { path } } })), onSettled: done }),
+  };
+}
+
+/** Copies just made to write on: they open ready to write. */
+export const writeOnOpen = new Set<string>();
+
 /** The starred files and folders. */
 export function useStarred() {
   return useQuery({ queryKey: ["drive", "starred"], queryFn: async () => unwrap(await api.GET("/api/v1/drive/starred")) });
