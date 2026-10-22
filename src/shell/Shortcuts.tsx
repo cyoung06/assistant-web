@@ -1,6 +1,7 @@
 import styles from "./Shortcuts.module.css";
 
 const KEYS: [string, string][] = [
+  ["⌘K", "Go to, make, or find anything"],
   ["C", "New task"],
   ["Q / ⇧Q", "Quick note / notebook page, for the class on now"],
   ["G then D / T / P / C / I / F", "Go to today / tasks / projects / calendar / triage / files"],

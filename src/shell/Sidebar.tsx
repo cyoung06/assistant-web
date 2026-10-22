@@ -44,7 +44,7 @@ export function Sidebar({ hash, go, collapsed, onCollapse, hidden, onHidden, onN
     <nav className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`} aria-label="Navigation">
       <div className={styles.top}>
         <span className={styles.brand}>Assistant</span>
-        <button className={styles.tool} title="Search" aria-label="Search" onClick={onSearch}>
+        <button className={styles.tool} title="Go to, make, or find anything (⌘K)" aria-label="Command palette" onClick={onSearch}>
           <SearchIcon />
         </button>
         <button className={styles.tool} title="Quick note for the class on now (Q; ⇧Q: a notebook page)" aria-label="Quick note" onClick={onQuickNote}>

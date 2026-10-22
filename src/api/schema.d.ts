@@ -3424,6 +3424,7 @@ export interface operations {
         parameters: {
             query?: {
                 kind?: string;
+                projectId?: string;
             };
             header?: never;
             path?: never;

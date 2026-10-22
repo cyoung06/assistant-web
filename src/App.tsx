@@ -11,6 +11,7 @@ import { quickNotes } from "./notes/fresh";
 import { useNarrow } from "./lib/useNarrow";
 import { MailReader } from "./refs/MailReader";
 import { TodayPage } from "./today/TodayPage";
+import { Palette, type Command } from "./shell/Palette";
 import { SourcesDialog } from "./shell/SourcesDialog";
 import { shortcutsBlocked, TasksProvider, useTasksUi } from "./tasks/context";
 import { FOCUS_SEARCH, TasksApp } from "./tasks/TasksApp";
@@ -82,6 +83,7 @@ function Shell() {
   const [hidden, setHidden] = useStored<string[]>("calendar.hidden", []);
   const [drawer, setDrawer] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { openCreate, openTask, notify } = useTasksUi();
   const [openEventId, setOpenEventId] = useState<string | null>(null);
@@ -142,10 +144,10 @@ function Shell() {
     setDrawer(false);
   };
   const newTask = () => openCreate(projectId ? { projectId } : {});
-  /** A new note (or notebook page) for the class on now, opened to write in. */
-  const quickNote = (notebook = false) =>
+  /** A new note (or notebook page) for the class on now (or in [projectId]), opened to write in. */
+  const quickNote = (notebook = false, projectId?: string) =>
     void api
-      .POST("/api/v1/quick-note", { params: { query: { kind: notebook ? "notebook" : "note" } } })
+      .POST("/api/v1/quick-note", { params: { query: { kind: notebook ? "notebook" : "note", projectId } } })
       .then((r) => {
         const { path } = unwrap(r);
         (notebook ? writeOnOpen : quickNotes).add(path);
@@ -157,6 +159,34 @@ function Shell() {
     setDrawer(false);
     setTimeout(() => window.dispatchEvent(new Event(FOCUS_SEARCH)), 50);
   };
+
+  // ⌘K: the palette, anywhere but a note (where ⌘K makes a link).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "k" || e.shiftKey || e.altKey) return;
+      if ((e.target as Element | null)?.closest?.(".cm-editor")) return;
+      e.preventDefault();
+      setPaletteOpen((o) => !o);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /** What the palette offers besides finding things. */
+  const commands: Command[] = [
+    { label: "Go to Today", hint: "G D", run: () => go("today") },
+    { label: "Go to Triage", hint: "G I", run: () => go("triage") },
+    { label: "Go to Active tasks", hint: "G T", keywords: "todo", run: () => go("tasks/active") },
+    { label: "Go to Projects", hint: "G P", run: () => go("tasks/projects") },
+    { label: "Go to Calendar", hint: "G C", keywords: "events schedule", run: () => go("calendar") },
+    { label: "Go to Files", hint: "G F", keywords: "drive", run: () => go("files") },
+    { label: "Go to Trash", keywords: "deleted", run: () => go("trash") },
+    { label: "New task", hint: "C", keywords: "create add todo", run: newTask },
+    { label: "Quick note", hint: "Q", keywords: "new note write", run: () => quickNote() },
+    { label: "Notebook page", hint: "⇧Q", keywords: "new notebook pen write", run: () => quickNote(true) },
+    { label: "Search tasks", keywords: "find filter", run: search },
+    { label: "Keyboard shortcuts", hint: "?", keywords: "keys help", run: () => setShortcutsOpen(true) },
+  ];
 
   // C, ?, and Linear's G-then-key navigation.
   useEffect(() => {
@@ -192,7 +222,7 @@ function Shell() {
           onHidden={setHidden}
           onNewTask={newTask}
           onQuickNote={() => quickNote()}
-          onSearch={search}
+          onSearch={() => (setPaletteOpen(true), setDrawer(false))}
           onSources={() => (setSourcesOpen(true), setDrawer(false))}
           onShortcuts={() => setShortcutsOpen((o) => !o)}
         />
@@ -226,6 +256,7 @@ function Shell() {
       <DropToTriage />
       {sourcesOpen && <SourcesDialog onClose={() => setSourcesOpen(false)} />}
       {shortcutsOpen && <Shortcuts onClose={() => setShortcutsOpen(false)} />}
+      {paletteOpen && <Palette commands={commands} onClose={() => setPaletteOpen(false)} go={go} quickNoteIn={(id) => quickNote(false, id)} />}
     </div>
   );
 }
