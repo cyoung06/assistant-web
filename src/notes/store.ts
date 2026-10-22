@@ -8,6 +8,8 @@ export interface NoteStore {
   imageSrc(path: string): string | Promise<string>;
   /** Opens a link: a web address, or (with [path]) a drive file. */
   openLink(href: string, path: string | null): void;
+  /** Opens what a mention (`@Name`) in the note at [notePath] means. */
+  openMention(name: string, notePath: string): void;
 }
 
 export type Loaded = { text: string };

@@ -78,6 +78,8 @@ export const KIND_LABEL: Record<RefKind, string> = {
   github_repo: "GitHub repo",
   github_issue: "GitHub issue",
   github_pr: "Pull request",
+  note: "Note",
+  file: "File",
   link: "Link",
 };
 

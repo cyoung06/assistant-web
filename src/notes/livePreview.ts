@@ -23,7 +23,7 @@ const dark = StateField.define<boolean>({
   update: (v, tr) => tr.effects.reduce((d, e) => (e.is(darkChanged) ? e.value : d), v),
 });
 
-type Setup = { core: Core; folder: string; open: OpenLink; images: ImageSource };
+type Setup = { core: Core; folder: string; open: OpenLink; images: ImageSource; mention: OpenMention };
 const setup = StateField.define<Setup | null>({ create: () => null, update: (v) => v });
 
 /** Where a note's images come from: a drive path to something an <img> can show. */
@@ -31,6 +31,8 @@ export type ImageSource = (path: string) => string | Promise<string>;
 
 /** Opens a link: a web address, or (with [path]) a drive file. */
 export type OpenLink = (href: string, path: string | null) => void;
+/** Opens what a mention (`@Name`) in the note means. */
+export type OpenMention = (name: string) => void;
 
 /** A drawing from the core (its SVG is only paths: text comes outlined). */
 function drawing(svg: string, cls: string) {
@@ -186,7 +188,7 @@ function inline(core: Core, text: string, isDark: boolean): DocumentFragment {
   for (const s of spansOf(core, text)) {
     const { from, to } = s.range;
     const e = s.element;
-    const cls = e.kind === "link" || e.kind === "autolink" ? "cm-md-link" : markClass[e.kind];
+    const cls = e.kind === "link" || e.kind === "autolink" || e.kind === "mention" ? "cm-md-link" : markClass[e.kind];
     if (cls) mark(from, to, cls);
     if (e.kind === "math") math.set(from, { to, tex: e.tex });
     if (e.kind !== "autolink") for (const m of s.marks) hidden.fill(true, m.from, m.to);
@@ -338,6 +340,10 @@ function build(state: EditorState): DecorationSet {
         out.push(Decoration.mark({ class: "cm-md-link", attributes: { "data-href": e.url, title: `${e.url} (⌘-click to open)` } }).range(from, to));
         if (e.kind === "link" && !editing) hideMarks(span);
         break;
+      case "mention":
+        out.push(Decoration.mark({ class: "cm-md-link", attributes: { "data-mention": e.name, title: `@${e.name} (⌘-click to open)` } }).range(from, to));
+        if (!editing) hideMarks(span);
+        break;
       case "math":
         if (editing) {
           out.push(Decoration.mark({ class: "cm-md-mathSource" }).range(from, to));
@@ -480,9 +486,14 @@ function linkClicks() {
       return false;
     },
     mousedown(e, view) {
-      const el = (e.target as HTMLElement).closest<HTMLElement>("[data-href]");
+      const el = (e.target as HTMLElement).closest<HTMLElement>("[data-href], [data-mention]");
       const s = view.state.field(setup);
       if (!el || !s || !(e.metaKey || e.ctrlKey || view.state.readOnly || pointer !== "mouse")) return false;
+      if (el.dataset.mention) {
+        e.preventDefault();
+        s.mention(el.dataset.mention);
+        return true;
+      }
       const href = el.dataset.href ?? "";
       if (!href) return false;
       e.preventDefault();
@@ -501,8 +512,8 @@ function linkClicks() {
 }
 
 /** The live preview, for a note in [folder] (drawn by [core]); its drive images come from [images]. */
-export const livePreview = (core: Core, folder: string, open: OpenLink, images: ImageSource, isDark: boolean) => [
-  setup.init(() => ({ core, folder, open, images })),
+export const livePreview = (core: Core, folder: string, open: OpenLink, images: ImageSource, isDark: boolean, mention: OpenMention = () => {}) => [
+  setup.init(() => ({ core, folder, open, images, mention })),
   focused,
   dark.init(() => isDark),
   preview,

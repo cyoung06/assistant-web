@@ -1,5 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
 import { createFile, fileUrl, parentOf } from "../files/api";
+import { appRoute } from "../refs/kinds";
 import { loadCore } from "./core";
 import type { Loaded, NoteStore } from "./store";
 
@@ -32,8 +34,21 @@ export function webStore(qc: QueryClient, openPath: (path: string) => void): Not
     imageSrc: fileUrl,
 
     openLink(href, path) {
-      if (path === null) window.open(href, "_blank", "noopener");
-      else openPath(path);
+      if (path !== null) return openPath(path);
+      // The app's own pages open in place.
+      const route = appRoute(href);
+      if (route === null) return void window.open(href, "_blank", "noopener");
+      history.pushState(null, "", "/" + route);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    },
+
+    openMention(name, notePath) {
+      void api.GET("/api/v1/refs/mention", { params: { query: { name, from: notePath } } }).then(({ data }) => {
+        if (!data) return;
+        const page = /^(?:https?:\/\/[^/]+)?\/files\/([^?#]+)$/.exec(data.url);
+        if (page) openPath("Projects/" + page[1]!.split("/").map(decodeURIComponent).join("/"));
+        else this.openLink(data.url, null);
+      });
     },
   };
 }

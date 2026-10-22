@@ -36,7 +36,8 @@ export type Element =
   | { kind: "math"; tex: string; display: boolean }
   | { kind: "task"; checked: boolean }
   | { kind: "codeBlock"; language: string; code: string }
-  | { kind: "table"; rows: string[][]; alignments: Alignment[] };
+  | { kind: "table"; rows: string[][]; alignments: Alignment[] }
+  | { kind: "mention"; name: string };
 export type Span = { element: Element; range: TextRange; marks: TextRange[] };
 
 export const spansOf = (c: Core, text: string) => c.markdownSpans(text) as Span[];

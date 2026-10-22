@@ -884,6 +884,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/refs/mention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["mention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/refs/plms/refresh": {
         parameters: {
             query?: never;
@@ -1610,7 +1626,7 @@ export interface components {
             /** Format: date-time */
             date?: string | null;
             /** @enum {string} */
-            kind: "task" | "project" | "event" | "mail" | "plms_course" | "plms_file" | "plms_notice" | "plms_assignment" | "plms_activity" | "github_repo" | "github_issue" | "github_pr" | "link";
+            kind: "task" | "project" | "event" | "mail" | "plms_course" | "plms_file" | "plms_notice" | "plms_assignment" | "plms_activity" | "github_repo" | "github_issue" | "github_pr" | "note" | "file" | "link";
             title: string;
             url: string;
         };
@@ -3467,6 +3483,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ref"][];
+                };
+            };
+        };
+    };
+    mention: {
+        parameters: {
+            query: {
+                name: string;
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ref"];
                 };
             };
         };
