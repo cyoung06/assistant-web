@@ -500,7 +500,10 @@ function PageView({
         </g>
         {wet.length >= 3 &&
           (tool === "fading" ? (
-            <path d={pathOf(new Float32Array(outlineOf(wet, 3.2, false)))} fill={LASER_RED} />
+            <g>
+              <path d={pathOf(new Float32Array(outlineOf(wet, 3.2, false)))} fill={LASER_RED} />
+              <path d={pathOf(new Float32Array(outlineOf(wet, 1.1, false)))} fill="#fff" />
+            </g>
           ) : (
             <path d={pathOf(new Float32Array(outlineOf(wet, tool === "highlighter" ? 9 : 0.6, tool !== "highlighter")))} fill="rgba(80, 80, 90, 0.6)" />
           ))}
