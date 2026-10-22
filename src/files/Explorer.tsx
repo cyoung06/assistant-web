@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { folderEntry, kind, parentOf, useFolder, type DriveEntry } from "./api";
+import { entryOf, folderEntry, kind, parentOf, useFolder, useRecent, useStarred, type DriveEntry } from "./api";
 import { useLongPress } from "./ContextMenu";
 import styles from "./Explorer.module.css";
 
@@ -93,7 +93,50 @@ export function Explorer({ root, rootName, ops }: { root: string; rootName: stri
   ops.known.set(root, top);
   return (
     <div ref={ref} className={styles.tree} role="tree" aria-label="Files" tabIndex={0} onKeyDown={onKey} onContextMenu={(e) => e.target === e.currentTarget && (e.preventDefault(), ops.menu(e.clientX, e.clientY, null, root))}>
+      <Quick root={root} ops={ops} />
       <Row entry={top} depth={0} ops={ops} expanded={expanded} set={set} focus={() => ref.current?.focus({ preventScroll: true })} />
+    </div>
+  );
+}
+
+/** Starred files and folders, then the ones opened lately (those under [root]): at the top, a click away. */
+function Quick({ root, ops }: { root: string; ops: Ops }) {
+  const starred = (useStarred().data ?? []).filter((s) => s.path.startsWith(root));
+  const recent = (useRecent(8).data ?? []).filter((s) => s.path.startsWith(root) && !s.path.endsWith("/"));
+  const item = (path: string, key: string) => {
+    const e = entryOf(path);
+    const where = parentOf(path).slice(root.length).replace(/\/$/, "");
+    return (
+      <div
+        key={key}
+        className={`${styles.row} ${styles.quick} ${ops.at === path ? styles.active : ""}`}
+        title={path}
+        onClick={(ev) => (ev.stopPropagation(), ops.open(e, true))}
+        onContextMenu={(ev) => (ev.preventDefault(), ev.stopPropagation(), ops.menu(ev.clientX, ev.clientY, e, e.folder ? e.path : parentOf(e.path)))}
+      >
+        <span className={styles.icon} aria-hidden>
+          {ICON[kind(e)]}
+        </span>
+        <span className={styles.name}>{e.name}</span>
+        {where && <span className={styles.where}>{where}</span>}
+      </div>
+    );
+  };
+  if (!starred.length && !recent.length) return null;
+  return (
+    <div className={styles.quickLists}>
+      {starred.length > 0 && (
+        <>
+          <div className={styles.heading}>Starred</div>
+          {starred.map((s) => item(s.path, "s:" + s.path))}
+        </>
+      )}
+      {recent.length > 0 && (
+        <>
+          <div className={styles.heading}>Recent</div>
+          {recent.map((s) => item(s.path, "r:" + s.path))}
+        </>
+      )}
     </div>
   );
 }

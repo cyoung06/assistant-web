@@ -244,6 +244,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/drive/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recentFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/starred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["starredFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/drive/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["fileState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["changeFileState"];
+        trace?: never;
+    };
     "/api/v1/drive/thumb": {
         parameters: {
             query?: never;
@@ -1184,6 +1232,26 @@ export interface components {
             createdAt: string;
             path: string;
         };
+        FileState: {
+            /** Format: date-time */
+            openedAt?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            path: string;
+            starred?: boolean;
+            tool?: string | null;
+            /** Format: float */
+            zoom?: number | null;
+        };
+        FileStateChange: {
+            opened?: boolean | null;
+            /** Format: int32 */
+            page?: number | null;
+            starred?: boolean | null;
+            tool?: string | null;
+            /** Format: float */
+            zoom?: number | null;
+        };
         GitHubAccount: {
             configured: boolean;
             error?: string | null;
@@ -1985,6 +2053,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriveFolder"];
+                };
+            };
+        };
+    };
+    recentFiles: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileState"][];
+                };
+            };
+        };
+    };
+    starredFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileState"][];
+                };
+            };
+        };
+    };
+    fileState: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileState"];
+                };
+            };
+        };
+    };
+    changeFileState: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileStateChange"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileState"];
                 };
             };
         };

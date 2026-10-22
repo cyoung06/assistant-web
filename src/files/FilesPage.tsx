@@ -15,6 +15,8 @@ import {
   useDriveMutations,
   useFolder,
   writable,
+  useFileStateMutations,
+  useStarred,
 } from "./api";
 import { Ask, ContextMenu, type MenuAction } from "./ContextMenu";
 import { Explorer, ICON, type Ops } from "./Explorer";
@@ -81,6 +83,13 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
   const folder = useFolder(path);
   const info = useDriveInfo().data;
   const { upload, create, makeFolder, move, copy, remove } = useDriveMutations();
+  const fileState = useFileStateMutations();
+  const starred = new Set((useStarred().data ?? []).map((s) => s.path));
+  // A file shown is a file opened (for Recent).
+  useEffect(() => {
+    if (viewing) fileState.opened(viewing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewing]);
   const known = useRef(new Map<string, DriveEntry>()).current;
 
   const [clip, setClip] = useState<Clip | null>(clipboard);
@@ -232,6 +241,7 @@ export function FilesPage({ path: at, go, root = "Projects/", rootName = "Files"
     } else items.push({ label: "Open in new tab", run: () => window.open(appUrl(here), "_blank", "noopener") }, "-");
     if (clip && canPut) items.push({ label: `Paste “${clip.name}”`, hint: "⌘V", run: () => paste(dest, clip) });
     if (e && canSiblings) items.push({ label: "Duplicate", run: () => actions.duplicate(e) });
+    if (e) items.push({ label: starred.has(e.path) ? "Unstar" : "Star", run: () => fileState.star(e.path, !starred.has(e.path)) });
     if (e && canChange) items.push("-", { label: "Rename", hint: "F2", run: () => setRenaming(e.path) }, { label: "Move to Trash", hint: "⌫", danger: true, run: () => actions.remove(e) });
     if (canPut)
       items.push(

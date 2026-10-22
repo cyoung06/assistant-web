@@ -203,3 +203,36 @@ export function useTrashMutations() {
     }),
   };
 }
+
+export type FileState = components["schemas"]["FileState"];
+
+/** The starred files and folders. */
+export function useStarred() {
+  return useQuery({ queryKey: ["drive", "starred"], queryFn: async () => unwrap(await api.GET("/api/v1/drive/starred")) });
+}
+
+/** The files opened most recently, latest first. */
+export function useRecent(limit = 8) {
+  return useQuery({ queryKey: ["drive", "recent", limit], queryFn: async () => unwrap(await api.GET("/api/v1/drive/recent", { params: { query: { limit } } })) });
+}
+
+/** What's kept about files: starring one, and noting one was opened. */
+export function useFileStateMutations() {
+  const qc = useQueryClient();
+  const change = useMutation({
+    mutationFn: async ({ path, ...body }: { path: string; starred?: boolean; opened?: boolean; page?: number; zoom?: number; tool?: string }) =>
+      unwrap(await api.PATCH("/api/v1/drive/state", { params: { query: { path } }, body })),
+    onSettled: (_d, _e, v) => {
+      if (v.starred !== undefined) void qc.invalidateQueries({ queryKey: ["drive", "starred"] });
+      if (v.opened) void qc.invalidateQueries({ queryKey: ["drive", "recent"] });
+    },
+  });
+  return {
+    star: (path: string, on: boolean) => change.mutate({ path, starred: on }),
+    opened: (path: string) => change.mutate({ path, opened: true }),
+  };
+}
+
+/** A path known only by itself (a starred or recent one) as an entry. */
+export const entryOf = (path: string): DriveEntry =>
+  path.endsWith("/") ? folderEntry(path) : { path, name: path.split("/").pop() ?? path, folder: false, size: 0 };

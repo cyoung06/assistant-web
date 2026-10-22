@@ -106,3 +106,30 @@ button.arrow:hover {
     font-size: 16px;
   }
 }
+
+.quickLists {
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.heading {
+  padding: 8px 10px 2px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.quick {
+  padding-left: 10px;
+}
+.where {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
